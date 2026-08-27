@@ -1,17 +1,51 @@
-// Namespace: home — home screen. Minimal seed; home feature agent extends.
+// Namespace: home — home screen (greeting, category grid, Available Now,
+// recent open jobs teaser, trust strip). Owned by the home+browse agent.
+// en is typed against am, so the two locales cannot drift apart.
 
 const am = {
   greeting: 'እንኳን ደህና መጡ',
+  greetingMorning: 'እንደምን አደሩ',
+  greetingAfternoon: 'እንደምን ዋሉ',
+  greetingEvening: 'እንደምን አመሹ',
   availableNowSection: 'አሁን ዝግጁ ባለሙያዎች',
   categoriesSection: 'ምድቦች',
   searchPlaceholder: 'ምን አገልግሎት ይፈልጋሉ?',
+  recentJobsSection: 'የቅርብ ጊዜ ክፍት ሥራዎች',
+  noAvailableNow: 'አሁን ዝግጁ የሆነ ባለሙያ የለም። ትንሽ ቆይተው ይሞክሩ።',
+  noRecentJobs: 'ለእርስዎ የሚታይ ክፍት ሥራ በአሁኑ ጊዜ የለም።',
+  signInTitle: 'ባለሙያዎችን ለማየት ይግቡ',
+  signInBody: 'የተረጋገጡ ባለሙያዎችን ለማየት እና ሥራ ለመለጠፍ መለያ ያስፈልጋል።',
+  signInCta: 'ግባ',
+  trustStripTitle: 'ለምን Take It?',
+  trustVerifiedTitle: 'የተረጋገጡ ባለሙያዎች',
+  trustVerifiedBody: 'እያንዳንዱ ባለሙያ በመታወቂያ ይረጋገጣል።',
+  trustGuarantorTitle: 'የማኅበረሰብ ዋስትና',
+  trustGuarantorBody: 'ባለሙያዎች በዕድር፣ በዕቁብ ወይም በአሠሪ ዋስ ይደገፋሉ።',
+  trustReviewsTitle: 'እውነተኛ ግምገማዎች',
+  trustReviewsBody: 'ግምገማዎች ከተጠናቀቁ ሥራዎች ብቻ ይመጣሉ።',
 } as const;
 
 const en: Record<keyof typeof am, string> = {
   greeting: 'Welcome',
+  greetingMorning: 'Good morning',
+  greetingAfternoon: 'Good afternoon',
+  greetingEvening: 'Good evening',
   availableNowSection: 'Available now',
   categoriesSection: 'Categories',
   searchPlaceholder: 'What service do you need?',
+  recentJobsSection: 'Recent open jobs',
+  noAvailableNow: 'No workers are available right now. Please check back soon.',
+  noRecentJobs: 'No open jobs visible to you right now.',
+  signInTitle: 'Sign in to see workers',
+  signInBody: 'You need an account to see verified workers and to post a job.',
+  signInCta: 'Sign in',
+  trustStripTitle: 'Why Take It?',
+  trustVerifiedTitle: 'Verified workers',
+  trustVerifiedBody: 'Every worker goes through an ID check.',
+  trustGuarantorTitle: 'Community guarantee',
+  trustGuarantorBody: 'Workers are vouched for by idir, equb or an employer.',
+  trustReviewsTitle: 'Genuine reviews',
+  trustReviewsBody: 'Reviews come only from completed jobs.',
 };
 
 export const home = { am, en };

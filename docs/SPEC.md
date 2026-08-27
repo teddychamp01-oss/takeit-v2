@@ -22,15 +22,21 @@ Trust is the product. v1 is dead; nothing is reused.
 - C1 NON-CUSTODIAL MONEY. Take It never holds user funds. Escrow routes
   through Chapa (charge → provider-held → release-on-confirmation via
   subaccount/split settlement). NO table may represent a Take It-owned user
-  balance. (NBE PII licensing = ETB 100M capital = forbidden.)
+  balance. (Building our own float = NBE payment-instrument-ISSUER licensing —
+  the ~ETB 100M minimum paid-up capital rule, per the Aug-2026 foundation
+  report; BLOCKERS #6 tracks written NBE confirmation = forbidden.)
 - C2 PII MINIMIZATION (Proc. 1321/2024): no raw biometrics ever. Fayda: store
   only verification result, returned attributes, txn id, timestamp; Fayda
   numbers stored SHA-256+salt hashed, never plaintext. Manual-ID images:
   private bucket, deleted 30 days after decision. Every PII field documented
   in docs/compliance.md (data map + retention). Data-residency (in-country) is
   an open legal risk — design for future migration.
-- C3 ANTI-DISINTERMEDIATION: phone numbers masked everywhere until a booking
-  is confirmed. Chat is job-scoped. Soft-warn on sharing numbers pre-booking.
+- C3 ANTI-DISINTERMEDIATION: phone numbers masked everywhere until the customer
+  confirms completion (booking status `customer_confirmed`, the terminal happy
+  state) — NOT at booking creation (bookings are born `confirmed`, so unmasking
+  there would defeat the whole control). Chat is job-scoped. Soft-warn on
+  sharing numbers pre-confirmation; `rpc_send_message` masks phone-like content
+  server-side until `customer_confirmed`.
 - C4 DUAL-ROLE: one account can be BOTH customer and worker.
 - C5 LANGUAGE: Amharic (am) DEFAULT, English (en) second. i18n file from day
   one — zero hardcoded UI strings.

@@ -74,6 +74,7 @@ is service-role/pg_cron work — **not yet implemented; tracked as a gap in
 
 | Field | PII | Purpose | Lawful basis | Retention | Masking |
 |---|---|---|---|---|---|
+| title, description | free text (may incidentally contain personal data, incl. about a child in babysitting-care) | describe the work | Contract | 1 year after job reaches terminal status, then delete | visible only to poster, booked worker, matched-radius workers (open jobs), ops/admin — RLS; not copied into audit_log |
 | service_address_text, service_landmark, service_neighborhood, service_geo | location of a household | service delivery | Contract | 1 year after job reaches terminal status, then null address/geo fields (row kept for stats) | visible only to poster, booked worker, matched-radius workers (open jobs), ops/admin — RLS |
 | local_contact_name | yes — third party (diaspora flow) | worker's on-site contact | Contract (posted on the contact's behalf by the customer) | same as address fields | visible under the same jobs RLS |
 | local_contact_phone_masked | yes (masked) | display pre-booking | Contract | same | **masked at insert by `mask_phone()` inside `rpc_post_job`**; CHECK rejects raw numbers; full number is exchanged in chat only after `customer_confirmed` |
@@ -84,6 +85,27 @@ is service-role/pg_cron work — **not yet implemented; tracked as a gap in
 |---|---|---|---|---|---|
 | body | yes (free text; users may include anything) | job coordination | Contract | 1 year after the booking reaches terminal status, then delete | readable ONLY by the two booking parties — **deliberately not even admin** (RLS); pre-completion phone-like content is masked server-side by `rpc_send_message` (C3); chat bodies are never copied into `audit_log` |
 | read_at, sender_id | low | delivery UX | Contract | same | — |
+
+### applications
+
+| Field | PII | Purpose | Lawful basis | Retention | Masking |
+|---|---|---|---|---|---|
+| message | free text (worker's pitch; may include personal detail) | job application | Contract | deleted with the parent job (1 year after terminal status) | visible to the applying worker and the job's customer only (RLS); pre-booking, so no unmasked contact should appear — CHECK on masked columns does not cover this free-text field, so a client-side soft-warn mirrors chat (PROPOSALS: add server-side phone soft-mask to rpc_apply_to_job) |
+| committed_window | low (a time string) | scheduling | Contract | same | — |
+
+### business_accounts (schema-only at MVP; no UI yet)
+
+| Field | PII | Purpose | Lawful basis | Retention | Masking |
+|---|---|---|---|---|---|
+| business_name | yes (org identity) | future B2B accounts | Contract | life of account | owner + ops/admin (RLS) |
+| tin | yes (tax identifier) | future B2B invoicing/compliance | Legal | life of account + tax-retention period (counsel to confirm) | owner + ops/admin only; never shown to counterparties — treat as sensitive |
+| type, active, owner_id | low | account state | Contract | life of account | — |
+
+### saved_workers
+
+| Field | PII | Purpose | Lawful basis | Retention | Masking |
+|---|---|---|---|---|---|
+| customer_id, worker_id | behavioral (who a customer bookmarked) | convenience list | Contract | life of account | own rows only (RLS) |
 
 ### payments / payouts
 

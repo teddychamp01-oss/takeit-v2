@@ -1,13 +1,146 @@
-// Namespace: bookings — inbox + booking detail. Minimal seed; bookings feature agent extends.
+// Namespace: bookings — inbox + booking detail + state machine + Phase-1
+// off-app payment logging. Amharic (am) is the default locale (SPEC C5).
+// paymentNonCustodial is load-bearing for C1: it tells both parties in plain
+// words that Take It never holds the money — this screen only WRITES A NOTE.
 
 const am = {
   inboxTitle: 'መልዕክቶች',
   bookingTitle: 'ማስያዣ',
+  inboxEmptyTitle: 'እስካሁን ማስያዣ የለም',
+  inboxEmptyBody:
+    'ሥራ ሲያስይዙ ወይም ማመልከቻዎ ተቀባይነት ሲያገኝ ማስያዣዎችዎ እዚህ ይታያሉ።',
+  inboxShowingOf: '{shown} ከ{total} ማስያዣዎች እየታዩ ነው',
+  filterAll: 'ሁሉም',
+  filterCustomer: 'እንደ ደንበኛ',
+  filterWorker: 'እንደ ባለሙያ',
+  roleCustomer: 'ደንበኛ',
+  roleWorker: 'ባለሙያ',
+  withName: 'ከ{name} ጋር',
+  unreadAria: '{count} ያልተነበቡ መልዕክቶች',
+  agreedPrice: 'የተስማሙበት ዋጋ',
+  notFoundTitle: 'ማስያዣው አልተገኘም',
+  notFoundBody: 'ይህ ማስያዣ የለም ወይም ለእርስዎ አይታይም።',
+  loadFailedTitle: 'መጫን አልተሳካም',
+  loadFailedBody: 'ግንኙነትዎን ያረጋግጡና እንደገና ይሞክሩ።',
+  actionStart: 'ሥራ ጀምር',
+  actionWorkerDone: 'ሥራውን ጨርሻለሁ',
+  actionCustomerConfirm: 'መጠናቀቁን አረጋግጥ',
+  actionCancel: 'ማስያዣውን ሰርዝ',
+  actionDispute: 'ቅሬታ አቅርብ',
+  hintConfirmedWorker: 'ማስያዣው ተረጋግጧል። ዝግጁ ሲሆኑ «ሥራ ጀምር» ይጫኑ።',
+  hintConfirmedCustomer: 'ባለሙያው ሥራውን እስኪጀምር በመጠበቅ ላይ።',
+  hintStartedWorker: 'ሥራው በሂደት ላይ ነው። ሲጨርሱ «ሥራውን ጨርሻለሁ» ይጫኑ።',
+  hintStartedCustomer: 'ባለሙያው ሥራውን በመሥራት ላይ ነው።',
+  hintWorkerDoneCustomer:
+    'ባለሙያው ሥራውን መጨረሱን አሳውቋል። ሥራው በአግባቡ ከተጠናቀቀ እባክዎ ያረጋግጡ።',
+  hintWorkerDoneWorker: 'ደንበኛው መጠናቀቁን እስኪያረጋግጥ በመጠበቅ ላይ።',
+  hintCompleted: 'ሥራው ተጠናቅቋል። እናመሰግናለን!',
+  hintDisputed: 'ይህ ማስያዣ በክርክር ላይ ነው፤ የTake It ቡድን ይመለከተዋል።',
+  hintCancelled: 'ይህ ማስያዣ ተሰርዟል።',
+  contactUnlocked:
+    'ሥራው ስለተጠናቀቀ አሁን ስልክ ቁጥር በውይይቱ መለዋወጥ ይችላሉ።',
+  cancelSheetTitle: 'ማስያዣውን መሰረዝ',
+  cancelReasonLabel: 'ምክንያት (አማራጭ)',
+  cancelConfirm: 'አዎ፣ ሰርዝ',
+  disputeSheetTitle: 'ቅሬታ ማቅረብ',
+  disputeReasonLabel: 'ችግሩን ይግለጹ',
+  disputeHint:
+    'ቅሬታዎ ለTake It ቡድን ይላካል፤ ማስያዣው «ክርክር ላይ» ተብሎ ይመዘገባል።',
+  disputeSubmit: 'ቅሬታውን አስገባ',
+  paymentTitle: 'የክፍያ መዝገብ',
+  paymentNonCustodial:
+    'ክፍያ በቀጥታ በሁለታችሁ መካከል ይፈጸማል (በጥሬ ገንዘብ ወይም በባንክ ዝውውር)። Take It ገንዘብ በፍጹም አይይዝም — ይህ ማስታወሻ ብቻ ነው።',
+  paymentAmountLabel: 'የተከፈለው መጠን (ብር)',
+  paymentAmountHint: 'ባዶ ከተተወ የተስማሙበት ዋጋ ይመዘገባል።',
+  paymentLog: 'ክፍያ መዝግብ',
+  paymentLoggedAs: 'የተመዘገበ መጠን',
+  paymentConfirm: 'ክፍያውን አረጋግጥ',
+  paymentConfirmedBadge: 'አረጋግጧል',
+  paymentPendingBadge: 'በመጠበቅ ላይ',
+  paymentBothConfirmed: 'ሁለቱም ወገኖች ክፍያውን አረጋግጠዋል።',
+  errorAmountInvalid: 'ትክክለኛ የብር መጠን ያስገቡ።',
+  errorAmountTooLarge: 'መጠኑ በጣም ትልቅ ነው።',
+  errorAmountMismatch:
+    'የተመዘገበው መጠን ከዚህ ይለያል። ገጹን አድሰው እንደገና ይሞክሩ።',
+  errorPaymentTooEarly: 'ክፍያ መመዝገብ የሚቻለው ሥራው ከተጀመረ በኋላ ነው።',
+  errorReasonLength: 'ምክንያቱ ከ3 እስከ 2000 ፊደላት መሆን አለበት።',
+  errorCancelReasonTooLong: 'ምክንያቱ ከ500 ፊደላት መብለጥ የለበትም።',
+  errorGeneric: 'የሆነ ችግር ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።',
+  errorAuthRequired: 'እባክዎ መጀመሪያ ይግቡ።',
+  errorNotAllowed: 'ይህን ተግባር ማከናወን አይችሉም።',
+  errorInvalidTransition: 'የማስያዣው ሁኔታ ተቀይሯል። እባክዎ ገጹን ያድሱ።',
 } as const;
 
 const en: Record<keyof typeof am, string> = {
   inboxTitle: 'Inbox',
   bookingTitle: 'Booking',
+  inboxEmptyTitle: 'No bookings yet',
+  inboxEmptyBody:
+    'When you book a worker or your application is accepted, your bookings appear here.',
+  inboxShowingOf: 'Showing {shown} of {total} bookings',
+  filterAll: 'All',
+  filterCustomer: 'As customer',
+  filterWorker: 'As worker',
+  roleCustomer: 'Customer',
+  roleWorker: 'Worker',
+  withName: 'With {name}',
+  unreadAria: '{count} unread messages',
+  agreedPrice: 'Agreed price',
+  notFoundTitle: 'Booking not found',
+  notFoundBody: 'This booking does not exist or is not visible to you.',
+  loadFailedTitle: 'Could not load',
+  loadFailedBody: 'Check your connection and try again.',
+  actionStart: 'Start work',
+  actionWorkerDone: 'I have finished',
+  actionCustomerConfirm: 'Confirm completion',
+  actionCancel: 'Cancel booking',
+  actionDispute: 'Open a dispute',
+  hintConfirmedWorker:
+    'The booking is confirmed. Tap "Start work" when you are ready.',
+  hintConfirmedCustomer: 'Waiting for the worker to start the job.',
+  hintStartedWorker:
+    'The job is in progress. Tap "I have finished" when you are done.',
+  hintStartedCustomer: 'The worker is on the job.',
+  hintWorkerDoneCustomer:
+    'The worker reports the job is finished. Please confirm once the work is properly done.',
+  hintWorkerDoneWorker: 'Waiting for the customer to confirm completion.',
+  hintCompleted: 'The job is complete. Thank you!',
+  hintDisputed:
+    'This booking is under dispute; the Take It team will review it.',
+  hintCancelled: 'This booking was cancelled.',
+  contactUnlocked:
+    'The job is complete — you may now exchange phone numbers in the chat.',
+  cancelSheetTitle: 'Cancel this booking',
+  cancelReasonLabel: 'Reason (optional)',
+  cancelConfirm: 'Yes, cancel it',
+  disputeSheetTitle: 'Open a dispute',
+  disputeReasonLabel: 'Describe the problem',
+  disputeHint:
+    'Your dispute goes to the Take It team and the booking is marked "Disputed".',
+  disputeSubmit: 'Submit dispute',
+  paymentTitle: 'Payment log',
+  paymentNonCustodial:
+    'Payment happens directly between the two of you (cash or bank transfer). Take It never holds the money — this is only a record.',
+  paymentAmountLabel: 'Amount paid (birr)',
+  paymentAmountHint: 'Leave empty to log the agreed price.',
+  paymentLog: 'Log payment',
+  paymentLoggedAs: 'Logged amount',
+  paymentConfirm: 'Confirm payment',
+  paymentConfirmedBadge: 'Confirmed',
+  paymentPendingBadge: 'Waiting',
+  paymentBothConfirmed: 'Both sides have confirmed this payment.',
+  errorAmountInvalid: 'Enter a valid birr amount.',
+  errorAmountTooLarge: 'That amount is too large.',
+  errorAmountMismatch:
+    'A different amount is already logged. Refresh the page and try again.',
+  errorPaymentTooEarly: 'Payments can be logged once the work has started.',
+  errorReasonLength: 'The reason must be 3–2000 characters.',
+  errorCancelReasonTooLong: 'The reason must be at most 500 characters.',
+  errorGeneric: 'Something went wrong. Please try again.',
+  errorAuthRequired: 'Please sign in first.',
+  errorNotAllowed: 'You cannot perform this action.',
+  errorInvalidTransition:
+    'The booking state has changed. Please refresh the page.',
 };
 
 export const bookings = { am, en };

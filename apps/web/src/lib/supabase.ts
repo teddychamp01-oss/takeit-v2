@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from './database.types';
 
 // Browser client. Uses the PUBLIC anon key only — RLS is the security
 // boundary. The service-role key must never appear anywhere in this app
@@ -15,4 +16,4 @@ if (!url || !anonKey) {
   );
 }
 
-export const supabase = createClient(url, anonKey);
+export const supabase = createClient<Database>(url, anonKey);
