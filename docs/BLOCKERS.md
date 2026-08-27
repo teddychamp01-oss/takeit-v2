@@ -8,6 +8,25 @@ Status legend: OPEN / IN PROGRESS / DONE (date).
 
 ---
 
+## Live infrastructure snapshot (2026-08-27)
+
+- **Supabase project** `snfkefcluzkdeztdtdnk` (eu-central-1) — LIVE. 8 migrations
+  applied; RLS on all 21 tables; seed loaded; TS types generated.
+- **Edge functions deployed & ACTIVE:** `chapa-webhook`, `telegram-auth`,
+  `purge-expired-verifications` (all verify_jwt=false; all return a graceful
+  503 until their secrets are set).
+- **Edge function NOT yet deployed:** `telegram-webhook` (the grammY bot). Its
+  source contains Amharic strings that could not be transmitted byte-exact
+  through the agent's deploy tool, and the CLI path has no access token in the
+  agent shell. **Deploy it from the repo** once the bot token is set (item #3):
+  `SUPABASE_ACCESS_TOKEN=<token> npx supabase functions deploy telegram-webhook \
+  --project-ref snfkefcluzkdeztdtdnk --no-verify-jwt`. The other three prove
+  the shared-deps bundle is correct; only the transport blocked this one.
+- **Repo:** committed locally + delivered as a git bundle; not on GitHub yet
+  (item #1).
+
+---
+
 ## 1. GitHub repo `takeit-v2` — OPEN
 
 **Blocked:** pushing this repo anywhere; PR-based flow; branch protection; CI
@@ -40,7 +59,13 @@ needs the bot token as HMAC key), `apps/telegram-bot`, S7 tests.
    this value is `TELEGRAM_LOGIN_DOMAIN`.
 3. Put the token into **Supabase edge function secrets** (Dashboard → Edge
    Functions → Secrets): `TELEGRAM_BOT_TOKEN`. Never into the repo or any
-   client env (R5).
+   client env (R5). Optionally set `TELEGRAM_WEBHOOK_SECRET` (else the function
+   derives the expected secret-token as SHA-256 of the bot token).
+4. **Deploy `telegram-webhook`** from the repo (see the infrastructure
+   snapshot above for the exact command) — it is the only edge function not
+   already deployed.
+5. Register the webhook with Telegram:
+   `https://api.telegram.org/bot<token>/setWebhook?url=https://snfkefcluzkdeztdtdnk.supabase.co/functions/v1/telegram-webhook&secret_token=<same-secret>`.
 
 ## 4. Africa's Talking account (SMS OTP fallback) — OPEN
 
@@ -122,7 +147,22 @@ bank account, invoicing.
 **Next action:** register the business, obtain trade license + TIN; store
 scans somewhere private (NOT the repo).
 
-## 12. Legal opinions to commission — OPEN
+## 12. Supabase Auth hardening + retention cron — OPEN
+
+Small dashboard/config items surfaced by the security review:
+1. **Enable leaked-password protection** (Auth → Policies): Supabase advisor
+   flags it off. Cheap; do before real signups. Email/password is only the
+   interim dev path, but turn it on regardless.
+2. **Schedule the retention purge.** `purge-expired-verifications` is deployed
+   but never called. Set a `PURGE_SECRET` edge secret, then schedule a daily
+   `pg_cron` job (or Supabase scheduled function) that POSTs to it with the
+   `x-purge-secret` header — this is what actually enforces the C2 "ID images
+   deleted 30 days after decision" rule (see docs/compliance.md §1).
+3. **Schedule the Phase-2 crons** (`auto_release_bookings`,
+   `publish_due_reviews`) when their slices go live — the functions exist,
+   unscheduled by design.
+
+## 13. Legal opinions to commission — OPEN
 
 One engagement, three written questions:
 1. **VAT on commission:** is Take It's commission VAT-able as an electronic

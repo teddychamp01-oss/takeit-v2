@@ -7,7 +7,8 @@ export const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
     'authorization, x-client-info, apikey, content-type, ' +
-    'x-telegram-bot-api-secret-token, chapa-signature, x-chapa-signature',
+    'x-telegram-bot-api-secret-token, chapa-signature, x-chapa-signature, ' +
+    'x-purge-secret',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
