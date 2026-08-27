@@ -22,6 +22,7 @@ import {
   buildDisputeArgs,
   buildLogPaymentArgs,
   buildSubmitReviewArgs,
+  canBookAgain,
   canCancel,
   canChat,
   canDispute,
@@ -41,6 +42,8 @@ import {
   reviewRevealAtIso,
   rpcErrorKey,
   shouldWarnPhone,
+  showSafetyShield,
+  showWorkerTrustCard,
   splitReviews,
   statusHintKey,
   UNREAD_SCAN_LIMIT,
@@ -200,6 +203,78 @@ describe('secondary/side guards mirror the RPCs exactly', () => {
       expect(statusHintKey('customer', status)).toMatch(/^bookings\.hint/);
       expect(statusHintKey('worker', status)).toMatch(/^bookings\.hint/);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Research-upgrade surface guards (N2a rebook, N7 trust card, N13 shield) —
+// exhaustive over role × status like the state machine above. Each matrix
+// contains the cases built to TRIP the guard (wrong role, off-path status),
+// not only the enabled cell (Gate 2 discipline).
+// ---------------------------------------------------------------------------
+
+describe('canBookAgain (N2a rebook loop)', () => {
+  it('customer at customer_confirmed ONLY — never the worker, never mid-flight', () => {
+    for (const status of ALL_STATUSES) {
+      expect(canBookAgain('customer', status)).toBe(
+        status === 'customer_confirmed',
+      );
+      // A worker "booking the customer again" is not a thing.
+      expect(canBookAgain('worker', status)).toBe(false);
+    }
+  });
+});
+
+describe('showWorkerTrustCard (N7 photo-confirm window)', () => {
+  it('customer at confirmed|started only; worker and non-party never', () => {
+    const shown: BookingStatus[] = ['confirmed', 'started'];
+    for (const status of ALL_STATUSES) {
+      expect(showWorkerTrustCard('customer', status)).toBe(
+        shown.includes(status),
+      );
+      expect(showWorkerTrustCard('worker', status)).toBe(false);
+      expect(showWorkerTrustCard(null, status)).toBe(false);
+    }
+  });
+});
+
+describe('showSafetyShield (N13)', () => {
+  it('started only — both roles get the same single shield entry', () => {
+    for (const status of ALL_STATUSES) {
+      expect(showSafetyShield(status)).toBe(status === 'started');
+    }
+  });
+});
+
+describe('research-upgrade i18n strings resolve in BOTH locales (C5 am-first)', () => {
+  it('rebook / trust / safety / inbox-CTA keys exist in am and en', () => {
+    const keys = [
+      'bookings.bookAgain',
+      'bookings.checkArrival',
+      'bookings.safetyTitle',
+      'bookings.safetyShieldAria',
+      'bookings.safetyReportProblem',
+      'bookings.inboxEmptyCta',
+      'reviews.saveForNextTime',
+      'reviews.workerSaved',
+      'reviews.saveWorkerFailed',
+    ] as const;
+    for (const key of keys) {
+      for (const locale of ['am', 'en'] as const) {
+        expect(lookupMessage(locale, key), `${key} (${locale})`).toBeTruthy();
+      }
+    }
+  });
+
+  it('N6d payment copy keeps the load-bearing C1 sentence in both locales', () => {
+    // The copy was reframed to normal-path (cash is how paying works), but
+    // the non-custodial claim must survive any future copy edit.
+    expect(lookupMessage('am', 'bookings.paymentNonCustodial')).toContain(
+      'ገንዘብ በፍጹም አይይዝም',
+    );
+    expect(lookupMessage('en', 'bookings.paymentNonCustodial')).toContain(
+      'never holds the money',
+    );
   });
 });
 

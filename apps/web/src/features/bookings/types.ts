@@ -3,6 +3,7 @@
 // writing (R1). Do not rename fields without re-reading the migrations.
 
 import type { BookingStatus } from '../../components/StatusBadge';
+import type { VerificationLevel } from '../../components/VerifiedBadge';
 
 /** Embedded party profile (via profiles!bookings_*_fkey). */
 export interface PartyProfileEmbed {
@@ -15,6 +16,11 @@ export interface PartyProfileEmbed {
 export interface JobEmbed {
   title: string;
   category_slug: string;
+  /**
+   * jobs.date_needed (YYYY-MM-DD or null). OPTIONAL because only the booking
+   * DETAIL select fetches it (N15 dual-date row); inbox rows omit it.
+   */
+  date_needed?: string | null;
 }
 
 /** One inbox row: booking + job title + both parties' display names. */
@@ -69,6 +75,19 @@ export interface BookingReviewRow {
   is_published: boolean;
   published_at: string | null;
   created_at: string;
+}
+
+/**
+ * Trust fields for the booking-screen worker identity card (N7). Read from
+ * worker_profiles (RLS: readable by all authenticated — verified in
+ * 20260827000500_rls.sql worker_profiles_select). All four columns are
+ * server-maintained; the client never writes them.
+ */
+export interface WorkerTrustRow {
+  verification_level: VerificationLevel;
+  rating_avg: number;
+  review_count: number;
+  jobs_completed: number;
 }
 
 /** rpc_send_message result (jsonb). */

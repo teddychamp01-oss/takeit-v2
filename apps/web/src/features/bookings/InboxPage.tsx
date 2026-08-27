@@ -170,6 +170,16 @@ export default function InboxPage() {
         <EmptyState
           title={t('bookings.inboxEmptyTitle')}
           body={t('bookings.inboxEmptyBody')}
+          action={
+            /* N11a: exactly ONE live CTA — the empty inbox teaches the next
+               step. A Link styled as the primary button (no <button> nesting). */
+            <Link
+              to="/browse"
+              className="inline-flex min-h-touch items-center justify-center gap-2 rounded-xl bg-primary px-5 text-base font-semibold text-white shadow-button transition active:bg-primary-600 motion-safe:active:scale-95"
+            >
+              {t('bookings.inboxEmptyCta')}
+            </Link>
+          }
         />
       </div>
     );
@@ -204,7 +214,7 @@ export default function InboxPage() {
         )}
 
         {capped && (
-          <p className="rounded-lg bg-ink/5 px-3 py-2 text-center text-xs text-ink-faint">
+          <p className="rounded-lg bg-ink/5 px-3 py-2 text-center text-sm leading-relaxed text-ink-faint">
             {t('bookings.inboxShowingOf', {
               shown: rows.length,
               total: total ?? rows.length,

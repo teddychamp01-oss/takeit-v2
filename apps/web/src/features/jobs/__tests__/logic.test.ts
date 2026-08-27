@@ -2,24 +2,30 @@ import { describe, expect, it } from 'vitest';
 import {
   APPLICATION_STATUS_DEF,
   BUDGET_MAX_BIRR,
+  DESCRIPTION_MAX,
   EMPTY_POST_JOB_FORM,
   PHONE_MASK_TOKEN,
   POST_JOB_STEPS,
   TIME_WINDOW_PRESETS,
+  TITLE_MAX,
   buildAcceptArgs,
   buildApplyArgs,
+  buildPackagePrefill,
   buildPostJobArgs,
   centsToBirrInput,
   extractApplicationsCount,
   extractEmbedded,
   formatDateNeeded,
+  isIsoDate,
   getErrorMessage,
   localTodayIso,
   maskPhonesInText,
   parseEtbToCents,
+  resolvePackageParam,
   rpcErrorKey,
   validateApplyForm,
   validatePostJobStep,
+  type PackagePrefillSource,
   type PostJobForm,
 } from '../logic';
 import { lookupMessage } from '../../../i18n';
@@ -638,8 +644,177 @@ describe('formatDateNeeded', () => {
     expect(formatDateNeeded('2026-08-27', 'en')).toBeTruthy();
   });
 
+  it('N15: am renders the dual Ethiopic (Gregorian) form', () => {
+    // Same engine expectation as lib/__tests__/format.test.ts — Node's ICU
+    // carries the ethiopic calendar; the helper itself degrades when absent.
+    expect(formatDateNeeded('2026-08-27', 'am')).toBe(
+      '21 ነሐሴ 2018 (27 ኦገስት 2026)',
+    );
+  });
+
+  it('N15: en output is unchanged (Gregorian en-GB medium)', () => {
+    expect(formatDateNeeded('2026-08-27', 'en')).toBe('27 Aug 2026');
+  });
+
   it('degrades to empty/raw, never throws', () => {
     expect(formatDateNeeded(null, 'am')).toBe('');
     expect(formatDateNeeded('garbage', 'en')).toBe('garbage');
+  });
+});
+
+describe('isIsoDate', () => {
+  it('accepts only the YYYY-MM-DD shape', () => {
+    expect(isIsoDate('2026-08-27')).toBe(true);
+    expect(isIsoDate('2026-8-27')).toBe(false);
+    expect(isIsoDate('27/08/2026')).toBe(false);
+    expect(isIsoDate('')).toBe(false);
+    expect(isIsoDate('2026-08-27T00:00:00')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// N3 — "Book this package": ?package= param + wizard seeding
+// ---------------------------------------------------------------------------
+describe('resolvePackageParam', () => {
+  it('accepts only uuid-shaped values (case-insensitive)', () => {
+    const id = '3f2b8c1d-9a4e-4f6b-8c2d-1e5a7b9c0d2f';
+    expect(resolvePackageParam(id)).toBe(id);
+    expect(resolvePackageParam(id.toUpperCase())).toBe(id.toUpperCase());
+  });
+
+  it('rejects null, empty, garbage, and near-uuids — no DB round trip', () => {
+    expect(resolvePackageParam(null)).toBeNull();
+    expect(resolvePackageParam('')).toBeNull();
+    expect(resolvePackageParam('home-cleaning')).toBeNull();
+    expect(resolvePackageParam('3f2b8c1d-9a4e-4f6b-8c2d')).toBeNull();
+    expect(
+      resolvePackageParam('3f2b8c1d-9a4e-4f6b-8c2d-1e5a7b9c0d2f-extra'),
+    ).toBeNull();
+  });
+});
+
+describe('buildPackagePrefill', () => {
+  const EXTRAS =
+    'Only what is listed is included — anything else is a new booking.';
+  const CATS = [{ slug: 'home-cleaning' }, { slug: 'tutors' }];
+
+  function pkg(
+    overrides: Partial<PackagePrefillSource> = {},
+  ): PackagePrefillSource {
+    return {
+      id: '3f2b8c1d-9a4e-4f6b-8c2d-1e5a7b9c0d2f',
+      category_slug: 'home-cleaning',
+      name_am: 'መደበኛ ጽዳት',
+      name_en: 'Standard clean',
+      checklist: [
+        { am: 'ወለል መጥረግ', en: 'Mop the floors' },
+        { am: 'መስኮት ማጽዳት', en: 'Clean the windows' },
+      ],
+      base_price_cents: 150000,
+      ...overrides,
+    };
+  }
+
+  it('seeds title, checklist-as-description + extras contract, and budget (en)', () => {
+    const seed = buildPackagePrefill(pkg(), 'en', EXTRAS, CATS);
+    expect(seed).toEqual({
+      categorySlug: 'home-cleaning',
+      title: 'Standard clean',
+      description: `• Mop the floors\n• Clean the windows\n\n${EXTRAS}`,
+      budgetBirr: '1500',
+    });
+  });
+
+  it('uses the Amharic name and checklist text when locale=am', () => {
+    const seed = buildPackagePrefill(pkg(), 'am', EXTRAS, CATS);
+    expect(seed?.title).toBe('መደበኛ ጽዳት');
+    expect(seed?.description).toBe(`• ወለል መጥረግ\n• መስኮት ማጽዳት\n\n${EXTRAS}`);
+  });
+
+  it('keeps exact cents in the editable budget (C7: never float birr)', () => {
+    const seed = buildPackagePrefill(
+      pkg({ base_price_cents: 150050 }),
+      'en',
+      EXTRAS,
+      CATS,
+    );
+    expect(seed?.budgetBirr).toBe('1500.50');
+    expect(parseEtbToCents(seed!.budgetBirr)).toEqual({
+      ok: true,
+      cents: 150050,
+    });
+  });
+
+  it('refuses (null) when the package category is not a loaded ACTIVE one', () => {
+    expect(
+      buildPackagePrefill(pkg({ category_slug: 'retired-cat' }), 'en', EXTRAS, CATS),
+    ).toBeNull();
+    expect(buildPackagePrefill(pkg(), 'en', EXTRAS, [])).toBeNull();
+  });
+
+  it('degrades a missing/garbage checklist to the extras sentence alone', () => {
+    for (const bad of [[], null, 'oops', { am: 'x' }, 42]) {
+      const seed = buildPackagePrefill(pkg({ checklist: bad }), 'en', EXTRAS, CATS);
+      expect(seed?.description).toBe(EXTRAS);
+    }
+  });
+
+  it('accepts the legacy string-array checklist shape', () => {
+    const seed = buildPackagePrefill(
+      pkg({ checklist: ['Mop floors', 'Windows'] }),
+      'en',
+      EXTRAS,
+      CATS,
+    );
+    expect(seed?.description).toBe(`• Mop floors\n• Windows\n\n${EXTRAS}`);
+  });
+
+  it('bounds the seeded title and description to the wizard maxima', () => {
+    const seed = buildPackagePrefill(
+      pkg({
+        name_en: 'x'.repeat(TITLE_MAX + 40),
+        checklist: [{ am: 'ሀ'.repeat(6000), en: 'y'.repeat(6000) }],
+      }),
+      'en',
+      EXTRAS,
+      CATS,
+    );
+    expect(seed?.title).toHaveLength(TITLE_MAX);
+    expect(seed?.description.length).toBeLessThanOrEqual(DESCRIPTION_MAX);
+  });
+
+  it('the seeded fields pass the wizard validators as-is (happy package)', () => {
+    const seed = buildPackagePrefill(pkg(), 'en', EXTRAS, CATS)!;
+    const form = validForm({
+      categorySlug: seed.categorySlug,
+      title: seed.title,
+      description: seed.description,
+      budgetBirr: seed.budgetBirr,
+    });
+    expect(validatePostJobStep('review', form, TODAY)).toEqual({});
+  });
+});
+
+// ---------------------------------------------------------------------------
+// New surfaces' i18n keys (N3 / N8 / N6c / N11b) resolve in BOTH locales —
+// a typo'd key would render as the raw key string on a driver's phone.
+// ---------------------------------------------------------------------------
+describe('N3/N8/N6c/N11b i18n keys', () => {
+  it('resolve in am and en', () => {
+    for (const key of [
+      'jobs.bookPackageCta',
+      'jobs.packageOnlyListed',
+      'jobs.acceptChatOpener',
+      'jobs.feedAntiScam',
+      'jobs.feedMatchCount',
+    ] as const) {
+      expect(lookupMessage('am', key)).toBeTruthy();
+      expect(lookupMessage('en', key)).toBeTruthy();
+    }
+  });
+
+  it('feedMatchCount interpolates the live count, including zero', () => {
+    const msg = lookupMessage('en', 'jobs.feedMatchCount')!;
+    expect(msg.replace('{count}', '0')).toContain('0 open jobs');
   });
 });

@@ -14,8 +14,11 @@
 // number cannot reach this page at all.
 
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useLocale } from '../../lib/i18n';
+// N15: date_needed renders as dual Ethiopic (Gregorian) in am — same
+// formatter the jobs feature uses, so the two screens can never disagree.
+import { formatDateNeeded } from '../jobs/logic';
 import { useSession } from '../../hooks/useSession';
 import { formatETB } from '../../lib/format';
 import { Badge } from '../../components/Badge';
@@ -24,15 +27,20 @@ import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { MaskedPhone } from '../../components/MaskedPhone';
 import { PageHeader } from '../../components/PageHeader';
+import { RatingStars } from '../../components/RatingStars';
 import { SpinnerBlock } from '../../components/Spinner';
 import { StatusBadge, type BookingStatus } from '../../components/StatusBadge';
+import { SupportLink } from '../../components/SupportLink';
 import { TextArea } from '../../components/TextArea';
 import { useToast } from '../../components/Toast';
+import { VerifiedBadge } from '../../components/VerifiedBadge';
+import { displayRating, postJobDeepLink } from '../browse/logic';
 import {
   cancelBooking,
   confirmCompletion,
   disputeBooking,
   fetchBooking,
+  fetchWorkerTrust,
   markWorkerDone,
   startBooking,
 } from './api';
@@ -49,6 +57,7 @@ import {
   bookingStageIndex,
   buildCancelArgs,
   buildDisputeArgs,
+  canBookAgain,
   canCancel,
   canDispute,
   canLogPayment,
@@ -58,14 +67,78 @@ import {
   isContactUnlocked,
   primaryActionFor,
   rpcErrorKey,
+  showSafetyShield,
+  showWorkerTrustCard,
   statusHintKey,
   validateCancelReason,
   validateDisputeReason,
   type BookingAction,
 } from './logic';
 import type { MessageKey } from '../../i18n';
+import type { PartyProfileEmbed } from './types';
 
-type SheetMode = 'cancel' | 'dispute' | null;
+type SheetMode = 'cancel' | 'dispute' | 'safety' | null;
+
+/** Link that LOOKS like the primary Button (a Link cannot nest in <button>). */
+const PRIMARY_LINK_CLASSES =
+  'inline-flex min-h-touch w-full items-center justify-center gap-2 ' +
+  'rounded-xl bg-primary px-5 text-base font-semibold text-white ' +
+  'shadow-button transition active:bg-primary-600 motion-safe:active:scale-95';
+
+function ShieldIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-6 w-6"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 2.5l7.5 2.8v5.9c0 4.6-3.2 8.1-7.5 10.3-4.3-2.2-7.5-5.7-7.5-10.3V5.3L12 2.5z" />
+      <path d="M8.8 12l2.2 2.2 4.2-4.4" />
+    </svg>
+  );
+}
+
+function PartyAvatar({
+  party,
+  name,
+  size,
+}: {
+  party: PartyProfileEmbed;
+  name: string;
+  size: 'compact' | 'large';
+}) {
+  const cls =
+    size === 'large'
+      ? 'h-16 w-16 shrink-0 rounded-full'
+      : 'h-10 w-10 shrink-0 rounded-full';
+  const px = size === 'large' ? 64 : 40;
+  return party.avatar_url ? (
+    <img
+      src={party.avatar_url}
+      alt=""
+      // The large variant is the page's above-fold identity image (near-LCP):
+      // never lazy. Compact rows (chat) stay lazy. Intrinsic dims guard CLS.
+      loading={size === 'large' ? 'eager' : 'lazy'}
+      width={px}
+      height={px}
+      className={`${cls} object-cover`}
+    />
+  ) : (
+    <span
+      aria-hidden="true"
+      className={`${cls} flex items-center justify-center bg-primary-100 font-bold text-primary-700 ${
+        size === 'large' ? 'text-2xl' : 'text-base'
+      }`}
+    >
+      {name.trim().charAt(0)}
+    </span>
+  );
+}
 
 function StageCheckIcon() {
   return (
@@ -149,7 +222,7 @@ function BookingStepper({ status }: { status: BookingStatus }) {
 
 export default function BookingPage() {
   const { id } = useParams<{ id: string }>();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const toast = useToast();
   const { user, loading: sessionLoading } = useSession();
   const uid = user?.id ?? null;
@@ -158,6 +231,21 @@ export default function BookingPage() {
     () => fetchBooking(id ?? ''),
     `booking:${id ?? ''}`,
     !!id && !!uid,
+  );
+
+  // Derived BEFORE the early returns so the trust hook below runs
+  // unconditionally (rules of hooks). Both are null until the booking loads.
+  const booking = bookingQ.data;
+  const role = booking && uid ? bookingRole(booking, uid) : null;
+
+  // N7 worker trust card: one extra worker_profiles read, only while the
+  // customer is looking at an arriving/working worker. A failed fetch only
+  // degrades the card (name + avatar remain) — it never blocks the page.
+  const trustEnabled = !!booking && showWorkerTrustCard(role, booking.status);
+  const trustQ = useAsync(
+    () => fetchWorkerTrust(booking?.worker_id ?? ''),
+    `booking-trust:${booking?.worker_id ?? ''}`,
+    trustEnabled,
   );
 
   const [actionBusy, setActionBusy] = useState(false);
@@ -192,8 +280,6 @@ export default function BookingPage() {
     );
   }
 
-  const booking = bookingQ.data;
-  const role = booking && uid ? bookingRole(booking, uid) : null;
   if (!booking || !uid || role === null) {
     // Not found, not visible, or the viewer is not a party (an ops/admin
     // account can SELECT the row via RLS but this page is for the parties).
@@ -246,7 +332,8 @@ export default function BookingPage() {
   };
 
   const submitSheet = () => {
-    if (actionBusy || sheet === null) return;
+    // 'safety' renders no form — only cancel/dispute ever submit from here.
+    if (actionBusy || sheet === null || sheet === 'safety') return;
     const invalid =
       sheet === 'cancel'
         ? validateCancelReason(reason)
@@ -288,41 +375,109 @@ export default function BookingPage() {
         <section className="rounded-2xl bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <StatusBadge kind="booking" status={booking.status} />
-            <Badge tone="primary">
-              {role === 'customer'
-                ? t('bookings.roleCustomer')
-                : t('bookings.roleWorker')}
-            </Badge>
+            <div className="flex items-center gap-1">
+              <Badge tone="primary">
+                {role === 'customer'
+                  ? t('bookings.roleCustomer')
+                  : t('bookings.roleWorker')}
+              </Badge>
+              {/* N13: ONE shield entry on the live screen, both roles */}
+              {showSafetyShield(booking.status) && (
+                <button
+                  type="button"
+                  onClick={() => setSheet('safety')}
+                  aria-label={t('bookings.safetyShieldAria')}
+                  className="flex h-touch w-touch items-center justify-center rounded-full text-primary-600 active:bg-ink/5"
+                >
+                  <ShieldIcon />
+                </button>
+              )}
+            </div>
           </div>
 
-          {counterpart && (
-            <div className="mt-3 flex items-center gap-3">
-              {counterpart.avatar_url ? (
-                <img
-                  src={counterpart.avatar_url}
-                  alt=""
-                  loading="lazy"
-                  className="h-10 w-10 shrink-0 rounded-full object-cover"
-                />
-              ) : (
-                <span
-                  aria-hidden="true"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-100 text-base font-bold text-primary-700"
-                >
-                  {counterpartName.trim().charAt(0)}
-                </span>
-              )}
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-ink">
-                  {t('bookings.withName', { name: counterpartName })}
-                </p>
-                {counterpart.phone_masked && (
-                  <MaskedPhone
-                    masked={counterpart.phone_masked}
-                    bookingConfirmed={unlocked}
+          {/* Identity block — ABOVE the stepper (N7 coordinates with T4).
+              For the customer at confirmed/started this is the trust card:
+              the customer is the face-match, so the photo is large and the
+              trust numbers are present. Everyone else gets the compact row. */}
+          {counterpart &&
+            (showWorkerTrustCard(role, booking.status) ? (
+              <div className="mt-3">
+                <div className="flex items-center gap-3">
+                  <PartyAvatar
+                    party={counterpart}
+                    name={counterpartName}
+                    size="large"
                   />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-bold text-ink">
+                      {counterpartName}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      {trustQ.data && (
+                        <VerifiedBadge level={trustQ.data.verification_level} />
+                      )}
+                      {counterpart.phone_masked && (
+                        <MaskedPhone
+                          masked={counterpart.phone_masked}
+                          bookingConfirmed={unlocked}
+                        />
+                      )}
+                    </div>
+                    {trustQ.data && (
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <RatingStars
+                          value={displayRating(
+                            trustQ.data.rating_avg,
+                            trustQ.data.review_count,
+                          )}
+                          count={trustQ.data.review_count}
+                        />
+                        <span className="text-xs text-ink-faint">
+                          {t('browse.jobsCompletedLong', {
+                            count: trustQ.data.jobs_completed,
+                          })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {booking.status === 'confirmed' && (
+                  <p className="mt-2 rounded-lg bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700">
+                    {t('bookings.checkArrival')}
+                  </p>
                 )}
               </div>
+            ) : (
+              <div className="mt-3 flex items-center gap-3">
+                <PartyAvatar
+                  party={counterpart}
+                  name={counterpartName}
+                  size="compact"
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-ink">
+                    {t('bookings.withName', { name: counterpartName })}
+                  </p>
+                  {counterpart.phone_masked && (
+                    <MaskedPhone
+                      masked={counterpart.phone_masked}
+                      bookingConfirmed={unlocked}
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+
+          {/* N15: the job's needed date, Ethiopic-first for am — a 7–8 year
+              calendar offset is a real mis-booking hazard (africa-G.3). */}
+          {job?.date_needed && (
+            <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-ink/5 pt-3">
+              <span className="shrink-0 text-sm text-ink-light">
+                {t('bookings.scheduledDate')}
+              </span>
+              <span className="text-right text-sm font-semibold text-ink">
+                {formatDateNeeded(job.date_needed, locale)}
+              </span>
             </div>
           )}
 
@@ -363,6 +518,21 @@ export default function BookingPage() {
             >
               {t(BOOKING_ACTION_LABEL[primaryAction])}
             </Button>
+          )}
+
+          {/* N2a rebook loop: at the terminal happy state the customer's one
+              action is booking this worker again — same deep link the worker
+              detail page uses (/post?worker=&category=). */}
+          {canBookAgain(role, booking.status) && (
+            <Link
+              to={postJobDeepLink(
+                booking.worker_id,
+                job?.category_slug ?? null,
+              )}
+              className={`${PRIMARY_LINK_CLASSES} mt-3`}
+            >
+              {t('bookings.bookAgain')}
+            </Link>
           )}
 
           {(canCancel(booking.status) || canDispute(booking.status)) && (
@@ -406,6 +576,9 @@ export default function BookingPage() {
             bookingId={booking.id}
             uid={uid}
             counterpartName={counterpartName}
+            role={role}
+            workerId={booking.worker_id}
+            categorySlug={job?.category_slug ?? null}
           />
         )}
 
@@ -417,40 +590,60 @@ export default function BookingPage() {
         open={sheet !== null}
         onClose={() => setSheet(null)}
         title={
-          sheet === 'dispute'
-            ? t('bookings.disputeSheetTitle')
-            : t('bookings.cancelSheetTitle')
+          sheet === 'safety'
+            ? t('bookings.safetyTitle')
+            : sheet === 'dispute'
+              ? t('bookings.disputeSheetTitle')
+              : t('bookings.cancelSheetTitle')
         }
       >
-        <div className="space-y-3">
-          {sheet === 'dispute' && (
-            <p className="text-sm text-ink-light">{t('bookings.disputeHint')}</p>
-          )}
-          <TextArea
-            label={
-              sheet === 'dispute'
-                ? t('bookings.disputeReasonLabel')
-                : t('bookings.cancelReasonLabel')
-            }
-            rows={3}
-            value={reason}
-            onChange={(event) => {
-              setReason(event.target.value);
-              setReasonError(null);
-            }}
-            error={reasonError ? t(reasonError) : undefined}
-          />
-          <Button
-            full
-            variant={sheet === 'dispute' ? 'danger' : 'primary'}
-            disabled={actionBusy}
-            onClick={submitSheet}
-          >
-            {sheet === 'dispute'
-              ? t('bookings.disputeSubmit')
-              : t('bookings.cancelConfirm')}
-          </Button>
-        </div>
+        {sheet === 'safety' ? (
+          /* N13 safety sheet: report → the existing dispute flow; plus a
+             human on Telegram. No emergency-numbers row — the numbers are
+             not ops-verified (plan N13 gate). */
+          <div className="space-y-3">
+            <Button
+              full
+              variant="secondary"
+              onClick={() => openSheet('dispute')}
+            >
+              {t('bookings.safetyReportProblem')}
+            </Button>
+            <SupportLink />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {sheet === 'dispute' && (
+              <p className="text-sm text-ink-light">
+                {t('bookings.disputeHint')}
+              </p>
+            )}
+            <TextArea
+              label={
+                sheet === 'dispute'
+                  ? t('bookings.disputeReasonLabel')
+                  : t('bookings.cancelReasonLabel')
+              }
+              rows={3}
+              value={reason}
+              onChange={(event) => {
+                setReason(event.target.value);
+                setReasonError(null);
+              }}
+              error={reasonError ? t(reasonError) : undefined}
+            />
+            <Button
+              full
+              variant={sheet === 'dispute' ? 'danger' : 'primary'}
+              disabled={actionBusy}
+              onClick={submitSheet}
+            >
+              {sheet === 'dispute'
+                ? t('bookings.disputeSubmit')
+                : t('bookings.cancelConfirm')}
+            </Button>
+          </div>
+        )}
       </BottomSheet>
     </div>
   );

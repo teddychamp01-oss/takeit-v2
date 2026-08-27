@@ -8,6 +8,8 @@ const am = {
   greetingAfternoon: 'እንደምን ዋሉ',
   greetingEvening: 'እንደምን አመሹ',
   availableNowSection: 'አሁን ዝግጁ ባለሙያዎች',
+  // N2c — saved-workers rail (rebook loop): shown only when ≥1 saved worker.
+  yourWorkersSection: 'የእርስዎ ባለሙያዎች',
   categoriesSection: 'ምድቦች',
   searchPlaceholder: 'ጽዳት፣ አስጠኚ፣ ጥገና… ይፈልጉ',
   heroSubline: 'ዛሬ ምን እርዳታ ይፈልጋሉ?',
@@ -36,6 +38,7 @@ const en: Record<keyof typeof am, string> = {
   greetingAfternoon: 'Good afternoon',
   greetingEvening: 'Good evening',
   availableNowSection: 'Available now',
+  yourWorkersSection: 'Your workers',
   categoriesSection: 'Categories',
   searchPlaceholder: 'Search cleaners, tutors, repairs…',
   heroSubline: 'What do you need help with today?',

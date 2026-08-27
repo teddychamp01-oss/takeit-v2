@@ -182,6 +182,25 @@ const am = {
   // ---- T8 deep link: "post a job like this" (CategoryPage → /post?category=) -
   postLikeThis: 'በዚህ ምድብ ሥራ ይለጥፉ',
   postLikeThisBody: 'በደቂቃዎች ውስጥ ከባለሙያዎች ምላሽ ያግኙ።',
+
+  // ---- N3 bookable packages (PackageCard CTA + prefilled scope contract).
+  // The extras line is the CONTRACT: the checklist bounds the scope
+  // (africa-C.1 — unbounded scope was SweepSouth's worst worker harm).
+  bookPackageCta: 'ይህን ጥቅል ያስይዙ',
+  packageOnlyListed: 'የተዘረዘረው ብቻ ተካትቷል — ሌላ ሥራ አዲስ ማስያዣ ነው።',
+
+  // ---- N8 accept-to-chat: prefilled (never auto-sent) opener the CUSTOMER
+  // sends as their own first message after accepting an application.
+  acceptChatOpener: 'ማስያዣው ተረጋግጧል — የመድረሻ ዝርዝሮችን እዚህ እንስማማ።',
+
+  // ---- N6c worker-feed anti-scam fixed line (africa-B.3: applying is free,
+  // never pay to work, report anything suspicious).
+  feedAntiScam:
+    'Take It ለማመልከት ክፍያ በጭራሽ አይጠይቅም። ሥራ ከመሥራትዎ በፊት ለማንም አይክፈሉ፤ አጠራጣሪ ነገር ካጋጠመዎት ያሳውቁን።',
+
+  // ---- N11b worker-feed empty state: the REAL count the feed query returned
+  // (zero says zero — law 6), never an invented number.
+  feedMatchCount: '{count} ክፍት ሥራዎች ከምድቦችዎ ጋር ይዛመዳሉ',
 } as const;
 
 const en: Record<keyof typeof am, string> = {
@@ -355,6 +374,17 @@ const en: Record<keyof typeof am, string> = {
 
   postLikeThis: 'Post a job in this category',
   postLikeThisBody: 'Get responses from workers in minutes.',
+
+  bookPackageCta: 'Book this package',
+  packageOnlyListed:
+    'Only what is listed is included — anything else is a new booking.',
+
+  acceptChatOpener: 'Booking confirmed — let’s agree the arrival details here.',
+
+  feedAntiScam:
+    'Take It never charges workers to apply. Never pay anyone before the work — report anything suspicious to us.',
+
+  feedMatchCount: '{count} open jobs match your categories',
 };
 
 export const jobs = { am, en };

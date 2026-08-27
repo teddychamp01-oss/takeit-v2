@@ -19,6 +19,8 @@ jobs:
       - run: npm run lint
       - run: npm run test
       - run: npm run build
+      - name: Bundle size budgets (N10 — budgets live in the script header)
+        run: node scripts/check-bundle-size.mjs
       - name: Assert no service-role key in client bundles
         run: |
           if grep -RiE "service_role|SERVICE_ROLE" apps/web/dist/ 2>/dev/null; then

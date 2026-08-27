@@ -217,6 +217,10 @@ export default function WorkerProfileEditPage() {
         ) : (
           <>
             <p className="text-sm text-ink-light">{t('profile.workerFormIntro')}</p>
+            {/* N6b — applying is free; commission only on completed work. */}
+            <p className="text-sm font-semibold leading-relaxed text-primary-700">
+              {t('profile.applyFreeIntro')}
+            </p>
 
             {/* ---- Verification level (read-only, server-set) ---- */}
             <section className="rounded-2xl bg-white p-4 shadow-sm">

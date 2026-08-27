@@ -14,11 +14,17 @@ import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocale } from '../../lib/i18n';
 import { useSession } from '../../hooks/useSession';
+import { useIdlePrefetch } from '../../hooks/useIdlePrefetch';
 import { formatRelativeTime } from '../../lib/format';
 import { LocaleSwitcher } from '../../components/LocaleSwitcher';
 import { SpinnerBlock } from '../../components/Spinner';
+import {
+  SkeletonJobList,
+  SkeletonWorkerRail,
+} from '../../components/Skeleton';
 import { WorkerCard } from '../../components/WorkerCard';
 import { JobCard } from '../../components/JobCard';
+import { YourWorkersRail } from './YourWorkersRail';
 import {
   fetchAvailableNowWorkers,
   fetchCategories,
@@ -98,6 +104,10 @@ export default function HomePage() {
   const { user, loading: sessionLoading } = useSession();
   const navigate = useNavigate();
 
+  // N17: Browse is the likeliest next tap from Home — warm its chunk once
+  // the main thread is idle. Bails on save-data / 2G inside the hook.
+  useIdlePrefetch(() => import('../browse/BrowsePage'));
+
   const categories = useAsync(fetchCategories, 'home:categories');
   const availableNow = useAsync(
     fetchAvailableNowWorkers,
@@ -127,7 +137,9 @@ export default function HomePage() {
           </div>
         </div>
         <div className="mt-4">
-          <h2 className="text-2xl font-extrabold">
+          {/* N14: localized (fidel) text stays inside weights 400–700 —
+              system Noto Sans Ethiopic has no 800, extrabold would fake-bold */}
+          <h2 className="text-2xl font-bold">
             {t(GREETING_KEY[greetingSlot(new Date().getHours())])}
           </h2>
           <p className="mt-0.5 text-sm opacity-90">{t('common.tagline')}</p>
@@ -223,6 +235,10 @@ export default function HomePage() {
           />
         ) : (
           <>
+            {/* N2c: saved-workers rail ABOVE Available Now — renders nothing
+                for users without saved workers (self-contained section). */}
+            <YourWorkersRail userId={user.id} />
+
             <section aria-label={t('home.availableNowSection')}>
               <SectionTitle
                 action={
@@ -243,7 +259,8 @@ export default function HomePage() {
                 </span>
               </SectionTitle>
               {availableNow.loading ? (
-                <SpinnerBlock />
+                /* N9: content-shaped load → skeleton that mirrors the rail. */
+                <SkeletonWorkerRail />
               ) : availableNow.failed ? (
                 <ErrorCard onRetry={availableNow.reload} />
               ) : railWorkers.length === 0 ? (
@@ -273,7 +290,8 @@ export default function HomePage() {
             <section aria-label={t('home.recentJobsSection')}>
               <SectionTitle>{t('home.recentJobsSection')}</SectionTitle>
               {openJobs.loading ? (
-                <SpinnerBlock />
+                /* N9: teaser fetches 5 job rows — skeleton mirrors JobCard. */
+                <SkeletonJobList count={3} />
               ) : openJobs.failed ? (
                 <ErrorCard onRetry={openJobs.reload} />
               ) : (openJobs.data ?? []).length === 0 ? (

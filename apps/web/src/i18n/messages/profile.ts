@@ -46,6 +46,8 @@ const am = {
   notifGeneric: 'ማሳወቂያ',
 
   workerFormIntro: 'መገለጫዎ ለደንበኞች የሚታይ ነው — በጥንቃቄ ይሙሉት።',
+  // N6b — never charge workers to apply; repeated where the profile is built.
+  applyFreeIntro: 'ማመልከት ነፃ ነው — Take It የሚያገኘው እርስዎ ሲያገኙ ብቻ ነው።',
   bioLabel: 'ስለ እርስዎ',
   bioHint: 'ልምድዎን እና አገልግሎትዎን በአጭሩ ይግለጹ።',
   bioTooLong: 'መግለጫው በጣም ረዝሟል (እስከ 2000 ፊደላት)።',
@@ -134,6 +136,7 @@ const en: Record<keyof typeof am, string> = {
   notifGeneric: 'Notification',
 
   workerFormIntro: 'Your profile is visible to customers — fill it in carefully.',
+  applyFreeIntro: 'Applying is free — Take It earns only when you do.',
   bioLabel: 'About you',
   bioHint: 'Briefly describe your experience and services.',
   bioTooLong: 'The description is too long (up to 2000 characters).',

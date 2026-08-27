@@ -36,6 +36,7 @@ import type {
   OffappPaymentRow,
   SendMessageResult,
   SubmitReviewResult,
+  WorkerTrustRow,
 } from './types';
 
 export const INBOX_LIMIT = 50;
@@ -109,12 +110,33 @@ export async function fetchBooking(
     .select(
       'id, job_id, worker_id, customer_id, agreed_price_cents, status, ' +
         'started_at, worker_done_at, completed_at, created_at, updated_at, ' +
-        `jobs(title, category_slug), ${PARTY_EMBEDS}`,
+        // date_needed feeds the N15 dual-date row; RLS jobs_select lets both
+        // parties read the job row (customer owns it; worker has the booking).
+        `jobs(title, category_slug, date_needed), ${PARTY_EMBEDS}`,
     )
     .eq('id', bookingId)
     .maybeSingle();
   if (error) throw error;
   return (data as unknown as BookingDetailRow) ?? null;
+}
+
+/**
+ * Trust fields for the worker identity card on the booking screen (N7).
+ * worker_profiles is readable by every authenticated user (RLS
+ * worker_profiles_select USING true — audited). null = the worker has no
+ * worker_profiles row (deleted profile); the card then degrades to
+ * name + avatar only, never blocks the page.
+ */
+export async function fetchWorkerTrust(
+  workerId: string,
+): Promise<WorkerTrustRow | null> {
+  const { data, error } = await supabase
+    .from('worker_profiles')
+    .select('verification_level, rating_avg, review_count, jobs_completed')
+    .eq('user_id', workerId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as WorkerTrustRow) ?? null;
 }
 
 // ---------------------------------------------------------------------------

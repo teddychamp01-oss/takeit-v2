@@ -5,6 +5,7 @@
 // so the "hidden" state here is computed from what is visible (splitReviews).
 
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useLocale } from '../../lib/i18n';
 import { formatRelativeTime } from '../../lib/format';
 import { Badge } from '../../components/Badge';
@@ -13,6 +14,10 @@ import { RatingStars } from '../../components/RatingStars';
 import { Spinner } from '../../components/Spinner';
 import { TextArea } from '../../components/TextArea';
 import { useToast } from '../../components/Toast';
+// Cross-feature imports sanctioned by plan N2 (rebook loop): the SAME
+// saved_workers write and /post deep link the browse feature uses.
+import { fetchIsSaved, saveWorker } from '../browse/api';
+import { postJobDeepLink } from '../browse/logic';
 import { fetchBookingReviews, submitReview } from './api';
 import { useAsync } from './useAsync';
 import {
@@ -23,10 +28,17 @@ import {
   rpcErrorKey,
   splitReviews,
   validateReviewForm,
+  type BookingRole,
   type ReviewFormErrors,
 } from './logic';
 import type { MessageKey } from '../../i18n';
 import type { BookingReviewRow } from './types';
+
+/** Link styled like the primary Button (a Link cannot nest inside <button>). */
+const PRIMARY_LINK_CLASSES =
+  'inline-flex min-h-touch w-full items-center justify-center gap-2 ' +
+  'rounded-xl bg-primary px-5 text-base font-semibold text-white ' +
+  'shadow-button transition active:bg-primary-600 motion-safe:active:scale-95';
 
 function StarPickButton({
   n,
@@ -96,12 +108,19 @@ interface ReviewSectionProps {
   bookingId: string;
   uid: string;
   counterpartName: string;
+  /** The VIEWER's role on this booking — the rebook nudge is customer-only. */
+  role: BookingRole;
+  workerId: string;
+  categorySlug: string | null;
 }
 
 export function ReviewSection({
   bookingId,
   uid,
   counterpartName,
+  role,
+  workerId,
+  categorySlug,
 }: ReviewSectionProps) {
   const { locale, t } = useLocale();
   const toast = useToast();
@@ -109,12 +128,40 @@ export function ReviewSection({
     () => fetchBookingReviews(bookingId),
     `booking-reviews:${bookingId}`,
   );
+  // N2b: is this worker already in saved_workers? Only asked for the
+  // customer — a worker reviewing a customer gets no save/rebook nudge.
+  const savedQ = useAsync(
+    () => fetchIsSaved(uid, workerId),
+    `review-saved:${uid}:${workerId}`,
+    role === 'customer',
+  );
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [errors, setErrors] = useState<ReviewFormErrors>({});
   const [submitErrorKey, setSubmitErrorKey] = useState<MessageKey | null>(null);
   const [busy, setBusy] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [savedNow, setSavedNow] = useState(false);
+
+  // Hide "Save for next time" once saved — either just now or previously.
+  // While the lookup is still loading, render nothing rather than a button
+  // that may vanish a frame later.
+  const alreadySaved = savedNow || savedQ.data === true;
+
+  const handleSave = () => {
+    if (saveBusy) return;
+    setSaveBusy(true);
+    saveWorker(uid, workerId)
+      .then(() => {
+        setSavedNow(true);
+        toast(t('reviews.workerSaved', { name: counterpartName }));
+      })
+      .catch(() => {
+        toast(t('reviews.saveWorkerFailed'), 'error');
+      })
+      .finally(() => setSaveBusy(false));
+  };
 
   const handleSubmit = () => {
     const formErrors = validateReviewForm(rating, comment);
@@ -143,7 +190,8 @@ export function ReviewSection({
   return (
     <section className="rounded-2xl bg-white p-4 shadow-sm">
       <h2 className="text-base font-bold text-ink">{t('reviews.title')}</h2>
-      <p className="mt-1 text-xs text-ink-light">
+      {/* N14 floor: multi-line Amharic body never below text-sm */}
+      <p className="mt-1 text-sm leading-relaxed text-ink-light">
         {t('reviews.doubleBlindExplain')}
       </p>
 
@@ -225,6 +273,30 @@ export function ReviewSection({
                       {t('reviews.submitted')}
                     </p>
                   )}
+                  {/* N2b rebook nudge at the peak-satisfaction moment:
+                      save the worker + book again, customer side only. */}
+                  {justSubmitted && role === 'customer' && (
+                    <div className="space-y-2">
+                      {!savedQ.loading && !alreadySaved && (
+                        <Button
+                          full
+                          variant="secondary"
+                          disabled={saveBusy}
+                          onClick={handleSave}
+                        >
+                          {t('reviews.saveForNextTime', {
+                            name: counterpartName,
+                          })}
+                        </Button>
+                      )}
+                      <Link
+                        to={postJobDeepLink(workerId, categorySlug)}
+                        className={PRIMARY_LINK_CLASSES}
+                      >
+                        {t('bookings.bookAgain')}
+                      </Link>
+                    </div>
+                  )}
                   <ReviewCard
                     title={t('reviews.yourReview')}
                     review={mine}
@@ -233,7 +305,7 @@ export function ReviewSection({
                     publishedLabel={t('reviews.publishedBadge')}
                   />
                   {isReviewHidden(mine) && (
-                    <p className="text-xs text-ink-faint">
+                    <p className="text-sm leading-relaxed text-ink-faint">
                       {theirs === null
                         ? t('reviews.waitingOther', { name: counterpartName })
                         : t('reviews.revealsAt', {

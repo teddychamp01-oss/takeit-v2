@@ -220,6 +220,12 @@ export function checklistText(item: ChecklistItem, locale: Locale): string {
 // The jobs feature reads `worker` and `category` from the query string.
 // ---------------------------------------------------------------------------
 
+// HONESTY NOTE (adversarial review): PostJobPage currently reads only
+// `category` (and `package`) — the `worker` param is informational/forward-
+// compatible. "Book again" therefore prefills the category, it does NOT
+// direct the job to that worker (rpc_post_job has no directed-worker arg;
+// jobs are open by design). True directed rebooking is a founder-gated
+// schema change — see docs/PROPOSALS.md "Directed rebooking".
 export function postJobDeepLink(
   workerId: string,
   categorySlug: string | null,

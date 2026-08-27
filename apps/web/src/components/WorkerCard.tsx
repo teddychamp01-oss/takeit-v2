@@ -4,6 +4,7 @@
 import { Link } from 'react-router-dom';
 import { useLocale } from '../lib/i18n';
 import { formatDistanceKm, formatETB } from '../lib/format';
+import { getNetQuality } from '../lib/netQuality';
 import { RatingStars } from './RatingStars';
 import { VerifiedBadge, type VerificationLevel } from './VerifiedBadge';
 import type { MessageKey } from '../i18n';
@@ -59,21 +60,38 @@ export interface WorkerCardProps {
   compact?: boolean;
 }
 
-/** Avatar with brand-gradient initial fallback (never a blank circle). */
+/**
+ * Avatar with brand-gradient initial fallback (never a blank circle).
+ *
+ * N17b (asia-#20): on save-data / 2G-class links (netQuality.constrained)
+ * the avatar URL is SKIPPED entirely and the initial fallback renders —
+ * data is a household cost in Addis, and the fallback already exists on
+ * every card. N9 (pwa-F13): explicit width/height pin the box so a slow
+ * image can never shift layout; rail (compact) avatars are NOT lazy —
+ * the Home rails are the first rails — while below-fold list avatars are.
+ */
 function Avatar({
   avatarUrl,
   name,
   sizeCls,
+  sizePx,
+  lazy,
 }: {
   avatarUrl?: string | null;
   name: string;
   sizeCls: string;
+  /** Intrinsic square dimension in px — must match sizeCls (CLS guard). */
+  sizePx: number;
+  lazy: boolean;
 }) {
-  return avatarUrl ? (
+  const showImage = !!avatarUrl && !getNetQuality().constrained;
+  return showImage ? (
     <img
-      src={avatarUrl}
+      src={avatarUrl as string}
       alt=""
-      loading="lazy"
+      width={sizePx}
+      height={sizePx}
+      loading={lazy ? 'lazy' : undefined}
       className={`${sizeCls} shrink-0 rounded-full object-cover`}
     />
   ) : (
@@ -136,7 +154,14 @@ export function WorkerCard({
       >
         <div className="flex items-center gap-2">
           <span className="relative shrink-0">
-            <Avatar avatarUrl={avatarUrl} name={name} sizeCls="h-10 w-10" />
+            {/* Rail cards sit in the first rails on Home — never lazy. */}
+            <Avatar
+              avatarUrl={avatarUrl}
+              name={name}
+              sizeCls="h-10 w-10"
+              sizePx={40}
+              lazy={false}
+            />
             <span
               aria-hidden="true"
               className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${avail.dot}`}
@@ -184,7 +209,14 @@ export function WorkerCard({
       className="block rounded-2xl bg-white p-4 shadow-card transition-colors active:bg-primary-50"
     >
       <div className="flex items-start gap-3">
-        <Avatar avatarUrl={avatarUrl} name={name} sizeCls="h-12 w-12 text-lg" />
+        {/* Full cards live in below-fold vertical lists — lazy is right. */}
+        <Avatar
+          avatarUrl={avatarUrl}
+          name={name}
+          sizeCls="h-12 w-12 text-lg"
+          sizePx={48}
+          lazy
+        />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="truncate font-semibold text-ink">{name}</span>

@@ -7,8 +7,12 @@
 // 20260827000400_functions_triggers.sql (R1: audited before writing).
 
 import { containsPhoneNumber } from '../../lib/phone';
+import { formatDualDate } from '../../lib/format';
 import { isNeighborhood } from '../auth/validation';
-import type { MessageKey } from '../../i18n';
+// Checklist parsing is REUSED from browse (also pure, also vitest-covered) —
+// forking it here would let the two features drift on the same jsonb shape.
+import { checklistText, parseChecklist } from '../browse/logic';
+import type { Locale, MessageKey } from '../../i18n';
 
 // ---------------------------------------------------------------------------
 // Bounds (each one matches a DB CHECK or an RPC guard — see file header)
@@ -511,6 +515,11 @@ export function addDaysIso(iso: string, days: number): string {
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** True for a well-formed YYYY-MM-DD string (shape only, not calendar validity). */
+export function isIsoDate(value: string): boolean {
+  return ISO_DATE_RE.test(value);
+}
+
 /**
  * Derive the JobCard timing chip from date_needed:
  *   null/'' → 'flexible', today → 'today', tomorrow…today+7 → 'this_week'.
@@ -572,7 +581,89 @@ export function resolveCategoryPrefill(
   return categories.some((c) => c.slug === slugParam) ? slugParam : null;
 }
 
-/** date_needed (YYYY-MM-DD) for display; locale-aware, safe fallback to raw. */
+// ---------------------------------------------------------------------------
+// N3 — `?package=<id>` deep link ("Book this package" on PackageCard). The
+// package's checklist becomes the job description: on a schema with NO
+// jobs.package_id column, the checklist-in-the-description IS the scope
+// contract both parties see on the job and in chat (uc-A1, africa-C.1).
+// Everything below is pure and vitest-covered; the page only wires it up.
+// ---------------------------------------------------------------------------
+
+/** Exactly the service_packages columns the prefill needs (R1: mirrors
+ *  20260827000300_tables.sql; fetched by features/jobs/api.fetchPackageById). */
+export interface PackagePrefillSource {
+  id: string;
+  category_slug: string;
+  name_am: string;
+  name_en: string;
+  /** Raw jsonb — validated by parseChecklist, never trusted. */
+  checklist: unknown;
+  base_price_cents: number;
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Accept the `?package=` param only when it is shaped like a uuid — anything
+ * else never reaches the database (it could only produce a 400, but garbage
+ * input should not cost a round trip).
+ */
+export function resolvePackageParam(param: string | null): string | null {
+  if (!param) return null;
+  return UUID_RE.test(param) ? param : null;
+}
+
+export type PackagePrefill = Pick<
+  PostJobForm,
+  'categorySlug' | 'title' | 'description' | 'budgetBirr'
+>;
+
+/**
+ * Seed the wizard from a package:
+ *   title       = package name (locale-appropriate, bounded to TITLE_MAX)
+ *   description = checklist lines + the extras sentence (the scope contract)
+ *   budgetBirr  = base_price_cents as editable birr text — the card's number
+ *                 is the starting number, never a hidden different one
+ *   categorySlug is taken from the package but only when it names a LOADED
+ *   ACTIVE category (same guard as resolveCategoryPrefill) — otherwise the
+ *   whole prefill is refused (null) and the caller falls back to the plain
+ *   `?category=` path.
+ *
+ * `extrasLine` arrives already translated (jobs.packageOnlyListed) so this
+ * stays pure — no i18n lookup, no React.
+ */
+export function buildPackagePrefill(
+  pkg: PackagePrefillSource,
+  locale: Locale,
+  extrasLine: string,
+  categories: readonly { slug: string }[],
+): PackagePrefill | null {
+  const categorySlug = resolveCategoryPrefill(pkg.category_slug, categories);
+  if (!categorySlug) return null;
+  const name = (locale === 'am' ? pkg.name_am : pkg.name_en).trim();
+  const lines = parseChecklist(pkg.checklist).map(
+    (item) => `• ${checklistText(item, locale)}`,
+  );
+  const description = [lines.join('\n'), extrasLine.trim()]
+    .filter(Boolean)
+    .join('\n\n')
+    .slice(0, DESCRIPTION_MAX);
+  return {
+    categorySlug,
+    title: name.slice(0, TITLE_MAX),
+    description,
+    budgetBirr: centsToBirrInput(pkg.base_price_cents),
+  };
+}
+
+/**
+ * date_needed (YYYY-MM-DD) for display; locale-aware, safe fallback to raw.
+ * N15: locale=am renders the Ethiopian-calendar dual form via formatDualDate
+ * ("21 ነሐሴ 2018 (27 ኦገስት 2026)") — a 7–8 year calendar offset is a real
+ * mis-booking hazard. en is unchanged. `T00:00:00` pins LOCAL midnight so the
+ * shown date can never shift a day across timezones.
+ */
 export function formatDateNeeded(
   iso: string | null,
   locale: 'am' | 'en',
@@ -581,7 +672,12 @@ export function formatDateNeeded(
   try {
     const date = new Date(`${iso}T00:00:00`);
     if (Number.isNaN(date.getTime())) return iso;
-    return new Intl.DateTimeFormat(locale === 'am' ? 'am-ET' : 'en-GB', {
+    if (locale === 'am') {
+      // Degrades internally to Gregorian am-ET when the engine lacks
+      // Ethiopic calendar data — never a wrongly-labelled date.
+      return formatDualDate(date, 'am') || iso;
+    }
+    return new Intl.DateTimeFormat('en-GB', {
       dateStyle: 'medium',
     }).format(date);
   } catch {

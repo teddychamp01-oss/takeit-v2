@@ -256,6 +256,13 @@ export default function OnboardingPage() {
                     <span className="block text-sm text-ink-light">
                       {t(option.bodyKey)}
                     </span>
+                    {/* N6b — never charge workers to apply; say so where
+                        they choose to become one (us-B1, uc-D10). */}
+                    {option.value === 'worker' && (
+                      <span className="mt-1 block text-sm font-semibold leading-relaxed text-primary-700">
+                        {t('auth.applyFree')}
+                      </span>
+                    )}
                   </button>
                 );
               })}

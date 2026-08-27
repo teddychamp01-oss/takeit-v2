@@ -3,7 +3,8 @@
 
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { useT } from '../../lib/i18n';
+import { useLocale, useT } from '../../lib/i18n';
+import { microCaps } from '../../lib/typography';
 import { Button } from '../../components/Button';
 import { Badge, type BadgeTone } from '../../components/Badge';
 import { VerifiedBadge } from '../../components/VerifiedBadge';
@@ -137,7 +138,7 @@ export function WorkerActivationCard({
   /** From the profiles row — avatars live there, not on worker_profiles. */
   avatarUrl: string | null;
 }) {
-  const t = useT();
+  const { t, locale } = useLocale();
   const completion = computeProfileCompletion({
     bio: worker.bio,
     categories: worker.categories,
@@ -153,7 +154,8 @@ export function WorkerActivationCard({
     <section className="rounded-2xl bg-white p-4 shadow-card">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold uppercase tracking-wide text-ink-faint">
+          {/* N14: caps/tracking en-only — fidel has no case (africa-G.4) */}
+          <p className={`text-xs font-bold text-ink-faint ${microCaps(locale)}`}>
             {t('profile.activationVerification')}
           </p>
           <div className="mt-1">

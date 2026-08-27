@@ -18,6 +18,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { hapticTick } from '../lib/haptic';
 
 export type ToastVariant = 'success' | 'error';
 
@@ -92,6 +93,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const show = useCallback<ShowToast>(
     (message, variant = 'success') => {
       const id = nextId.current++;
+      // N17: every toast marks a feedback moment — one 15 ms tick rides
+      // along here (single wiring point; feature-detected, reduced-motion
+      // aware inside hapticTick).
+      hapticTick();
       setToasts((list) => pushToast(list, { id, message, variant }));
       timers.current.set(
         id,

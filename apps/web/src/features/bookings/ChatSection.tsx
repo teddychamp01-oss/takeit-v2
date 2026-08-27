@@ -10,6 +10,7 @@
 //   draft, because the server may have masked it.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useLocale } from '../../lib/i18n';
 import { formatRelativeTime } from '../../lib/format';
 import { Button } from '../../components/Button';
@@ -43,11 +44,20 @@ interface ChatSectionProps {
 
 export function ChatSection({ bookingId, uid, status }: ChatSectionProps) {
   const { locale, t } = useLocale();
+  const location = useLocation();
   const [messages, setMessages] = useState<MessageRow[] | null>(null);
   const [total, setTotal] = useState<number | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [loadNonce, setLoadNonce] = useState(0);
-  const [draft, setDraft] = useState('');
+  // N8 accept-to-chat: a caller (JobDetailPage after rpc_accept_application)
+  // may hand over an opener via navigation state. It only PREFILLS the input
+  // — the user still presses Send, so it is visibly their own message, and
+  // it goes through rpc_send_message like any other (never auto-sent).
+  const [draft, setDraft] = useState(() => {
+    const seeded = (location.state as { chatDraft?: unknown } | null)
+      ?.chatDraft;
+    return typeof seeded === 'string' ? seeded : '';
+  });
   const [sending, setSending] = useState(false);
   const [sendErrorKey, setSendErrorKey] = useState<MessageKey | null>(null);
   const [maskedNotice, setMaskedNotice] = useState(false);
@@ -153,7 +163,8 @@ export function ChatSection({ bookingId, uid, status }: ChatSectionProps) {
       {messages !== null && (
         <>
           {truncated && (
-            <p className="mb-2 rounded-lg bg-ink/5 px-3 py-2 text-center text-xs text-ink-faint">
+            /* N14 floor: Amharic notice text never below text-sm */
+            <p className="mb-2 rounded-lg bg-ink/5 px-3 py-2 text-center text-sm leading-relaxed text-ink-faint">
               {t('chat.showingRecent', { count: MESSAGES_LIMIT })}
             </p>
           )}
@@ -205,7 +216,7 @@ export function ChatSection({ bookingId, uid, status }: ChatSectionProps) {
       )}
 
       {maskedNotice && (
-        <p className="mt-3 rounded-lg bg-primary-50 px-3 py-2 text-xs text-primary-800">
+        <p className="mt-3 rounded-lg bg-primary-50 px-3 py-2 text-sm leading-relaxed text-primary-800">
           {t('chat.maskedNotice')}
         </p>
       )}
@@ -213,7 +224,7 @@ export function ChatSection({ bookingId, uid, status }: ChatSectionProps) {
       {open ? (
         <div className="mt-3">
           {warnPhone && (
-            <p className="mb-2 rounded-lg bg-primary-50 px-3 py-2 text-xs font-medium text-primary-800">
+            <p className="mb-2 rounded-lg bg-primary-50 px-3 py-2 text-sm font-medium leading-relaxed text-primary-800">
               {t('chat.phoneWarning')}
             </p>
           )}

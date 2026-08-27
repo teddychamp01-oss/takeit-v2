@@ -122,6 +122,20 @@ export function PackageCard({ pkg }: { pkg: PackageRow }) {
           </ul>
         </div>
       )}
+      {/* N3: the checklist is the scope CONTRACT — say so on the card, and
+          make the package bookable. The deep link seeds the post-job wizard
+          (title/checklist/price) and skips the category step; the card's
+          price is the wizard's starting price, never a different one. Keys
+          live in the jobs namespace: the flow they open is the jobs wizard. */}
+      <p className="mt-2 text-sm leading-relaxed text-ink-faint">
+        {t('jobs.packageOnlyListed')}
+      </p>
+      <Link
+        to={`/post?category=${encodeURIComponent(pkg.category_slug)}&package=${encodeURIComponent(pkg.id)}`}
+        className="mt-3 flex min-h-touch w-full items-center justify-center rounded-xl bg-primary px-4 font-semibold text-white transition-colors active:bg-primary-700"
+      >
+        {t('jobs.bookPackageCta')}
+      </Link>
     </article>
   );
 }

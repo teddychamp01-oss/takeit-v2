@@ -1,5 +1,10 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { formatDistanceKm, formatETB, formatRelativeTime } from '../format';
+import {
+  formatDistanceKm,
+  formatDualDate,
+  formatETB,
+  formatRelativeTime,
+} from '../format';
 
 // Intl joins the ብር symbol and the number with a NO-BREAK space (U+00A0).
 const NBSP = '\u00a0';
@@ -119,5 +124,72 @@ describe('formatRelativeTime', () => {
     } as unknown as typeof Intl.RelativeTimeFormat;
     vi.stubGlobal('Intl', { ...Intl, RelativeTimeFormat: BrokenRTF });
     expect(formatRelativeTime(ago(5 * 60), 'am', now)).toBe('2026-08-26');
+  });
+});
+
+describe('formatDualDate (N15)', () => {
+  // These strings pin node's ICU output. They prove the LOGIC (Ethiopic
+  // first, Gregorian in parentheses, en Gregorian-only, safe fallbacks) —
+  // they do NOT prove the glyphs render on the target Android WebView.
+  // The on-device glyph check on the owner's phone is this item's real
+  // Gate 4 (TESTPLAN S8.1); Intl Ethiopic support there is assumed, not
+  // measured. Mid-day UTC timestamps keep the assertions timezone-stable
+  // in CI (TZ=UTC).
+  const iso = '2026-08-27T12:00:00Z';
+
+  it('renders Ethiopic first with Gregorian in parentheses for am', () => {
+    // 2026-08-27 Gregorian = 2018 ነሐሴ 21 Ethiopian (8-year offset zone).
+    expect(formatDualDate(iso, 'am')).toBe('21 ነሐሴ 2018 (27 ኦገስት 2026)');
+  });
+
+  it('renders Gregorian only for en', () => {
+    expect(formatDualDate(iso, 'en')).toBe('August 27, 2026');
+  });
+
+  it('accepts Date and epoch-millis input', () => {
+    const date = new Date(iso);
+    expect(formatDualDate(date, 'en')).toBe('August 27, 2026');
+    expect(formatDualDate(date.getTime(), 'en')).toBe('August 27, 2026');
+  });
+
+  it('returns empty string for invalid input', () => {
+    expect(formatDualDate('not-a-date', 'am')).toBe('');
+    expect(formatDualDate(Number.NaN, 'en')).toBe('');
+    expect(formatDualDate('', 'am')).toBe('');
+  });
+
+  it('degrades to Gregorian-only when the engine silently lacks the Ethiopic calendar', () => {
+    // Engine resolves to a non-ethiopic calendar without throwing: showing
+    // that output as Ethiopic would be a wrong date. Must fall back.
+    const RealDTF = Intl.DateTimeFormat;
+    const SneakyDTF = function (
+      locale?: string | string[],
+      opts?: Intl.DateTimeFormatOptions,
+    ) {
+      const inner = new RealDTF(
+        typeof locale === 'string' ? locale.replace('-u-ca-ethiopic', '') : locale,
+        opts,
+      );
+      return {
+        format: (d: Date | number) => inner.format(d),
+        resolvedOptions: () => ({
+          ...inner.resolvedOptions(),
+          calendar: 'gregory',
+        }),
+      };
+    } as unknown as typeof Intl.DateTimeFormat;
+    vi.stubGlobal('Intl', { ...Intl, DateTimeFormat: SneakyDTF });
+    const out = formatDualDate(iso, 'am');
+    expect(out).not.toContain('(');
+    expect(out).not.toContain('ነሐሴ');
+  });
+
+  it('degrades to ISO date when Intl.DateTimeFormat throws entirely', () => {
+    const BrokenDTF = function () {
+      throw new Error('locale data unavailable');
+    } as unknown as typeof Intl.DateTimeFormat;
+    vi.stubGlobal('Intl', { ...Intl, DateTimeFormat: BrokenDTF });
+    expect(formatDualDate(iso, 'am')).toBe('2026-08-27');
+    expect(formatDualDate(iso, 'en')).toBe('2026-08-27');
   });
 });

@@ -84,7 +84,8 @@ export function PaymentCard({
       <h2 className="text-base font-bold text-ink">
         {t('bookings.paymentTitle')}
       </h2>
-      <p className="mt-1 text-xs text-ink-light">
+      {/* N14 floor: multi-line Amharic body never below text-sm */}
+      <p className="mt-1 text-sm leading-relaxed text-ink-light">
         {t('bookings.paymentNonCustodial')}
       </p>
 

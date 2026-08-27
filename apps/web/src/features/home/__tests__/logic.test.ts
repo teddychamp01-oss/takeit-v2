@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   GREETING_KEY,
+  YOUR_WORKERS_RAIL_CAP,
   categoryNamesFor,
   greetingSlot,
   rankAvailableNow,
+  savedRailCards,
 } from '../logic';
 import { lookupMessage, type MessageKey } from '../../../i18n';
 import type { BadgeLevel } from '../../browse/types';
+import type { SavedWorkerRow } from '../../profile/types';
 
 describe('greetingSlot', () => {
   it('boundaries: 5 starts morning, 12 starts afternoon, 18 starts evening', () => {
@@ -121,6 +124,69 @@ describe('categoryNamesFor', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// N2c — savedRailCards
+// ---------------------------------------------------------------------------
+function savedRow(
+  workerId: string,
+  overrides: Partial<SavedWorkerRow['worker_profiles']> = {},
+): SavedWorkerRow {
+  return {
+    worker_id: workerId,
+    created_at: '2026-08-27T10:00:00Z',
+    worker_profiles: {
+      user_id: workerId,
+      availability_status: 'available_now',
+      price_min_cents: 20000,
+      price_max_cents: 35000,
+      rating_avg: 4.5,
+      review_count: 6,
+      jobs_completed: 8,
+      verification_level: 'id_verified',
+      profiles: { display_name: `Worker ${workerId}`, avatar_url: null },
+      ...overrides,
+    },
+  };
+}
+
+describe('savedRailCards', () => {
+  it('maps every card field from the joined row', () => {
+    const [card] = savedRailCards([savedRow('w1')]);
+    expect(card).toEqual({
+      id: 'w1',
+      name: 'Worker w1',
+      avatarUrl: null,
+      verificationLevel: 'id_verified',
+      ratingAvg: 4.5,
+      reviewCount: 6,
+      jobsCompleted: 8,
+      priceMinCents: 20000,
+      priceMaxCents: 35000,
+      availability: 'available_now',
+    });
+  });
+
+  it('caps at YOUR_WORKERS_RAIL_CAP (5) preserving input order — never re-sorts', () => {
+    const rows = ['f', 'a', 'z', 'b', 'y', 'c', 'x'].map((id) => savedRow(id));
+    const cards = savedRailCards(rows);
+    expect(cards).toHaveLength(YOUR_WORKERS_RAIL_CAP);
+    // Input order (recency from the query) survives — alphabetical would be
+    // ['a','b','c','f','x'] which is exactly the repo-law-1 sin.
+    expect(cards.map((c) => c.id)).toEqual(['f', 'a', 'z', 'b', 'y']);
+  });
+
+  it('zero reviews → null rating (unrated shows —, never 0.0)', () => {
+    const [card] = savedRailCards([
+      savedRow('w1', { rating_avg: 0, review_count: 0 }),
+    ]);
+    expect(card.ratingAvg).toBeNull();
+  });
+
+  it('empty input → empty output (rail renders nothing)', () => {
+    expect(savedRailCards([])).toEqual([]);
+  });
+});
+
 describe('home/browse card i18n keys', () => {
   const NEW_KEYS: readonly MessageKey[] = [
     'home.heroSubline',
@@ -130,6 +196,21 @@ describe('home/browse card i18n keys', () => {
     'home.errandsCardBody',
     'home.searchPlaceholder',
     'browse.priceFromShort',
+    // N2c saved rail + N5 badge sheet / review provenance
+    'home.yourWorkersSection',
+    'browse.reviewsProvenance',
+    'browse.badgeSheetTitle',
+    'browse.badgeSheetCheckedTitle',
+    'browse.badgeSheetNotCheckedTitle',
+    'browse.badgeSheetBasicChecked',
+    'browse.badgeSheetBasicNotId',
+    'browse.badgeSheetIdChecked1',
+    'browse.badgeSheetIdChecked2',
+    'browse.badgeSheetFaydaChecked',
+    'browse.badgeSheetProChecked',
+    'browse.badgeSheetNotQuality',
+    'browse.badgeSheetMeetFirst',
+    'browse.badgeSheetDocsPrivate',
   ];
 
   it('every new key resolves in BOTH locales (no missing-key leaks)', () => {

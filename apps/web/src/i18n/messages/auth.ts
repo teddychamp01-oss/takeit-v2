@@ -53,6 +53,8 @@ const am = {
   roleSwitchHint: 'በኋላ ከመለያዎ መቀየር ይችላሉ።',
   workerHint:
     'እንደ ባለሙያ ስራ ለመቀበል በኋላ ሙሉ የባለሙያ መገለጫዎን ያጠናቅቃሉ።',
+  // N6b — never charge workers to apply; say so where workers sign up.
+  applyFree: 'ማመልከት ነፃ ነው — Take It የሚያገኘው እርስዎ ሲያገኙ ብቻ ነው።',
   neighborhoodTitle: 'ዋና ሰፈርዎን ይምረጡ',
   errorNeighborhoodRequired: 'እባክዎ ሰፈር ይምረጡ',
   neighborhoodBole: 'ቦሌ',
@@ -125,6 +127,7 @@ const en: Record<keyof typeof am, string> = {
   roleSwitchHint: 'You can switch later from your account.',
   workerHint:
     'To take jobs as a worker, you will complete your full worker profile later.',
+  applyFree: 'Applying is free — Take It earns only when you do.',
   neighborhoodTitle: 'Choose your main neighborhood',
   errorNeighborhoodRequired: 'Please choose a neighborhood',
   neighborhoodBole: 'Bole',

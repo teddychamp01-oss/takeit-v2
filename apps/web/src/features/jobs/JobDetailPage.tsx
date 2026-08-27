@@ -13,6 +13,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useLocale } from '../../lib/i18n';
+import { microCaps } from '../../lib/typography';
 import { useSession } from '../../hooks/useSession';
 import { formatETB, formatRelativeTime } from '../../lib/format';
 import { containsPhoneNumber } from '../../lib/phone';
@@ -201,7 +202,15 @@ export default function JobDetailPage() {
       );
       // The provider lives in AppShell, so the toast survives the navigation.
       toast(t('jobs.acceptedToast'));
-      navigate(`/bookings/${result.booking_id}`);
+      // N8 accept-to-chat (us-A5 "Confirm and Chat"): land in the booking
+      // with the chat input PREFILLED (never auto-sent) with the customer's
+      // opener — ChatSection reads `chatDraft` from navigation state, and the
+      // customer still presses Send, so it is visibly their own message.
+      // `booking_id` is the verified key of the RPC's jsonb result
+      // (20260827000400_functions_triggers.sql, rpc_accept_application).
+      navigate(`/bookings/${result.booking_id}`, {
+        state: { chatDraft: t('jobs.acceptChatOpener') },
+      });
     } catch (e) {
       setPriceErrorKey(rpcErrorKey(getErrorMessage(e)));
       setAccepting(false);
@@ -429,9 +438,13 @@ function InfoRow({
   label: string;
   children: ReactNode;
 }) {
+  const { locale } = useLocale();
   return (
     <div className="flex gap-3">
-      <dt className="w-16 shrink-0 text-xs font-medium uppercase text-ink-faint">
+      {/* N14: caps/tracking en-only — fidel has no case (africa-G.4) */}
+      <dt
+        className={`w-16 shrink-0 text-xs font-medium text-ink-faint ${microCaps(locale)}`}
+      >
         {label}
       </dt>
       <dd className="min-w-0 flex-1 break-words text-ink">{children}</dd>

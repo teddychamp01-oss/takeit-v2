@@ -23,6 +23,7 @@ import {
   APPLICATIONS_LIMIT,
   LIST_LIMIT,
   type ApplicationStatus,
+  type PackagePrefillSource,
   type RpcAcceptArgs,
   type RpcApplyArgs,
   type RpcPostJobArgs,
@@ -49,6 +50,25 @@ export async function fetchActiveCategories(): Promise<CategoryRow[]> {
     .order('slug', { ascending: true }); // stable id tiebreak
   if (error) throw error;
   return (data ?? []) as CategoryRow[];
+}
+
+/**
+ * N3 `?package=` deep link: one package by id, ACTIVE only (an admin-retired
+ * package must stop seeding new jobs even if a stale link survives).
+ * null = not found / inactive — the caller falls back to `?category=` seeding.
+ * RLS: service_packages_select is open to anon+authenticated (public catalog).
+ */
+export async function fetchPackageById(
+  id: string,
+): Promise<PackagePrefillSource | null> {
+  const { data, error } = await supabase
+    .from('service_packages')
+    .select('id, category_slug, name_am, name_en, checklist, base_price_cents')
+    .eq('id', id)
+    .eq('active', true)
+    .maybeSingle();
+  if (error) throw error;
+  return data as PackagePrefillSource | null;
 }
 
 // ---------------------------------------------------------------------------

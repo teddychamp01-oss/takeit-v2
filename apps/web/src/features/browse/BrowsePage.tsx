@@ -7,10 +7,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocale } from '../../lib/i18n';
 import { useSession } from '../../hooks/useSession';
+import { useIdlePrefetch } from '../../hooks/useIdlePrefetch';
 import { PageHeader } from '../../components/PageHeader';
 import { Input } from '../../components/Input';
 import { EmptyState } from '../../components/EmptyState';
 import { SpinnerBlock } from '../../components/Spinner';
+import {
+  SkeletonCategoryGrid,
+  SkeletonWorkerList,
+} from '../../components/Skeleton';
 import { WorkerCard } from '../../components/WorkerCard';
 import { fetchCategories, searchWorkersByName } from './api';
 import {
@@ -28,6 +33,10 @@ const DEBOUNCE_MS = 300;
 export default function BrowsePage() {
   const { locale, t } = useLocale();
   const { user, loading: sessionLoading } = useSession();
+
+  // N17: from Browse the likeliest next tap is a worker card — warm the
+  // WorkerDetail chunk once idle. Bails on save-data / 2G inside the hook.
+  useIdlePrefetch(() => import('./WorkerDetailPage'));
 
   const [input, setInput] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -73,7 +82,8 @@ export default function BrowsePage() {
         <section aria-label={t('browse.allCategories')}>
           <SectionTitle>{t('browse.allCategories')}</SectionTitle>
           {categories.loading ? (
-            <SpinnerBlock />
+            /* N9: content-shaped load → skeleton mirroring the 4-col grid. */
+            <SkeletonCategoryGrid />
           ) : categories.failed ? (
             <ErrorCard onRetry={categories.reload} />
           ) : visibleCategories.length === 0 ? (
@@ -96,7 +106,8 @@ export default function BrowsePage() {
             ) : !searchable ? (
               <p className="text-sm text-ink-faint">{t('browse.searchHint')}</p>
             ) : workers.loading ? (
-              <SpinnerBlock />
+              /* N9: result list load → worker-card-shaped skeletons. */
+              <SkeletonWorkerList count={3} />
             ) : workers.failed ? (
               <ErrorCard onRetry={workers.reload} />
             ) : !workers.data || workers.data.rows.length === 0 ? (
@@ -105,7 +116,8 @@ export default function BrowsePage() {
               <>
                 {workers.data.total != null &&
                   workers.data.total > workers.data.rows.length && (
-                    <p className="mb-2 text-xs text-ink-faint">
+                    /* N14 floor: Amharic notice text never below text-sm */
+                    <p className="mb-2 text-sm leading-relaxed text-ink-faint">
                       {t('browse.showingWorkers', {
                         shown: workers.data.rows.length,
                         total: workers.data.total,

@@ -210,6 +210,59 @@ BotFather token, see BLOCKERS.md; run when it lands)*
       (e.g. confirm completion on a booking still Confirmed).
       Expected: friendly refusal, Amharic default.
 
+## S8 — Research-upgrade device gates (2026-08-27 synthesis; owner phone)
+
+None of these can be verified from the sandbox — each one is the item's real
+Gate 4. Run on the owner's actual Android phone (and inside the Telegram
+in-app browser where noted). A fail here is a finding, never a reason to
+ship anyway.
+
+- [ ] **S8.1 Ethiopic calendar glyphs (N15).** Switch locale to Amharic and
+      open any screen that shows a job/booking date once `formatDualDate` is
+      wired (until then, run
+      `new Intl.DateTimeFormat('am-ET-u-ca-ethiopic',{year:'numeric',month:'long',day:'numeric'}).format(new Date())`
+      in the phone browser's console on the app origin).
+      Expected: an Ethiopian date in fidel with the Gregorian date in
+      parentheses — e.g. "21 ነሐሴ 2018 (27 ኦገስት 2026)" — correct ~8-year
+      offset, no tofu boxes, no Gregorian date masquerading as Ethiopic.
+      Unit tests pin node's ICU output only; Android WebView Intl Ethiopic
+      support is ASSUMED until this passes.
+- [ ] **S8.2 Telegram-WebView install behavior (N16).** Open the app via a
+      bot deep link inside Telegram's in-app browser; complete a booking
+      journey; watch whether `beforeinstallprompt` ever fires (the install
+      card will simply not appear if it does not).
+      Expected finding, not assumption: record fires / does-not-fire. The
+      research tag is NOT VERIFIED; the "open in Chrome" fallback UI is
+      deliberately NOT built until this test says it is needed.
+- [ ] **S8.3 Offline banner + cache allowlist (N4, Gate 2 on-device).**
+      Load Home online, enable airplane mode, reload.
+      Expected: categories/browse lists still render from cache AND the slim
+      "ከበይነመረብ ውጭ ነዎት — የተቀመጠ መረጃ እየታየ ነው" banner shows on every page.
+      Then (still offline) open Inbox / a booking:
+      Expected: those FAIL to load (error state) — per-user data must never
+      come from cache. In devtools → Application → Cache Storage, confirm
+      only 'api-read' (catalog URLs) and 'avatar-images' exist; any
+      /rest/v1/rpc/, /auth/, messages, bookings, notifications or profiles
+      URL in a cache is a release blocker.
+- [ ] **S8.4 Emergency numbers (N13 — ops verification, phone optional).**
+      Before ANY emergency-numbers row ships in the safety sheet: ops calls
+      each Addis number and records date + result in the PR.
+      Expected: the row does not exist in the app until this is done
+      (currently correctly absent — trust-F9 marks the numbers NOT
+      VERIFIED).
+- [ ] **S8.5 Amharic copy review (native speaker).** A native Amharic
+      speaker reads every new research-upgrade string in context on the
+      phone (offline banner, safety/trust copy, package scope line, chat
+      warning reword, date lines).
+      Expected: natural phrasing, no machine-translation artifacts; fixes go
+      through i18n files only. Agent-written am copy is DRAFT until this
+      passes.
+- [ ] **S8.6 Haptic tick (N17).** With system haptics on, trigger any toast
+      (e.g. save a worker).
+      Expected: one short tick with the toast. Enable "remove animations" /
+      reduced motion in Android accessibility and repeat: no vibration
+      (Gate 2: see the guard actually suppress it).
+
 ---
 
 **Append rule (from SPEC):** every human-testable item a feature agent ships

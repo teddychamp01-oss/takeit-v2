@@ -20,6 +20,7 @@ import { profile } from './messages/profile';
 import { verification } from './messages/verification';
 import { admin } from './messages/admin';
 import { feedback } from './messages/feedback';
+import { safety } from './messages/safety';
 
 export const catalogs = {
   common,
@@ -35,6 +36,7 @@ export const catalogs = {
   verification,
   admin,
   feedback,
+  safety,
 } as const;
 
 export type Locale = 'am' | 'en';

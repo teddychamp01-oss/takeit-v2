@@ -93,6 +93,40 @@ export function canReview(status: BookingStatus): boolean {
 }
 
 /**
+ * "Book again" (N2a — the rebook loop): offered to the CUSTOMER once the
+ * booking reached its terminal happy state. Rebooking a cancelled/disputed
+ * booking from here would relitigate a bad experience — never offered.
+ */
+export function canBookAgain(
+  role: BookingRole,
+  status: BookingStatus,
+): boolean {
+  return role === 'customer' && status === 'customer_confirmed';
+}
+
+/**
+ * Worker trust card (N7): the customer IS the face-match. Shown to the
+ * customer while the named worker is about to arrive or on the job
+ * (confirmed | started) — exactly the window where "is this the person?"
+ * matters. Workers see the compact block; later states drop back to it too.
+ */
+export function showWorkerTrustCard(
+  role: BookingRole | null,
+  status: BookingStatus,
+): boolean {
+  return role === 'customer' && (status === 'confirmed' || status === 'started');
+}
+
+/**
+ * Safety shield (N13): one shield entry on the LIVE booking screen, both
+ * roles, while work is in progress (started) — a buried safety page kills
+ * usage. It opens the safety sheet (report a problem / talk to Take It).
+ */
+export function showSafetyShield(status: BookingStatus): boolean {
+  return status === 'started';
+}
+
+/**
  * C3: the contact-masking soft-block lifts ONLY at customer_confirmed —
  * the same point rpc_booking_customer_confirm returns contact_unlocked=true
  * and rpc_send_message stops masking phone-number-looking content.

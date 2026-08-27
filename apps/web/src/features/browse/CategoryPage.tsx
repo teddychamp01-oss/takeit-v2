@@ -17,6 +17,10 @@ import { Select } from '../../components/Select';
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { SpinnerBlock } from '../../components/Spinner';
+import {
+  SkeletonPackageList,
+  SkeletonWorkerList,
+} from '../../components/Skeleton';
 import { WorkerCard } from '../../components/WorkerCard';
 import { Badge } from '../../components/Badge';
 import {
@@ -137,7 +141,8 @@ export default function CategoryPage() {
         <section aria-label={t('browse.packagesSection')}>
           <SectionTitle>{t('browse.packagesSection')}</SectionTitle>
           {packages.loading ? (
-            <SpinnerBlock />
+            /* N9: content-shaped load → package-card-shaped skeletons. */
+            <SkeletonPackageList count={2} />
           ) : packages.failed ? (
             <ErrorCard onRetry={packages.reload} />
           ) : (packages.data ?? []).length === 0 ? (
@@ -199,7 +204,8 @@ export default function CategoryPage() {
               )}
 
               {workers.loading ? (
-                <SpinnerBlock />
+                /* N9: list load → worker-card-shaped skeletons. */
+                <SkeletonWorkerList count={3} />
               ) : workers.failed ? (
                 <ErrorCard onRetry={workers.reload} />
               ) : !workers.data || workers.data.rows.length === 0 ? (
@@ -232,7 +238,12 @@ export default function CategoryPage() {
                       </p>
                     )}
 
-                  {nearbyEnabled && nearby.loading && <SpinnerBlock />}
+                  {/* N9: the nearby overlay is a list load too. */}
+                  {nearbyEnabled && nearby.loading && (
+                    <div className="mb-2">
+                      <SkeletonWorkerList count={2} />
+                    </div>
+                  )}
                   {nearbyEnabled && nearby.failed && (
                     <div className="mb-2">
                       <ErrorCard onRetry={nearby.reload} />

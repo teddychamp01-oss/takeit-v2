@@ -1,6 +1,6 @@
 // Shared job row card — the v1 information hierarchy on v2 primitives
 // (v1-adoption plan T3):
-//   (1) category emoji + uppercase micro-label
+//   (1) category emoji + micro-label (uppercase/tracking en-only — N14)
 //   (2) bold truncated title + StatusBadge top-right
 //   (3) two-line clamped description
 //   (4) footer: neighborhood + derived timing chip left, bold budget right
@@ -16,11 +16,14 @@
 
 import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import { useT } from '../lib/i18n';
+import { useLocale } from '../lib/i18n';
 import { formatETB } from '../lib/format';
+import { microCaps } from '../lib/typography';
 import { StatusBadge, type JobStatus } from './StatusBadge';
 import {
   deriveTiming,
+  formatDateNeeded,
+  isIsoDate,
   localTodayIso,
   TIMING_CHIP_KEY,
 } from '../features/jobs/logic';
@@ -98,10 +101,16 @@ export function JobCard({
   posterName,
   children,
 }: JobCardProps) {
-  const t = useT();
+  const { t, locale } = useLocale();
   // undefined = the row carries no date info -> no chip (never a false one).
   const timing =
     dateNeeded === undefined ? null : deriveTiming(dateNeeded, localTodayIso());
+  // N15: a concrete date the chip can't express (past, or beyond a week)
+  // renders as the formatted date instead — dual Ethiopic (Gregorian) in am.
+  const timingDate =
+    timing === null && typeof dateNeeded === 'string' && isIsoDate(dateNeeded)
+      ? formatDateNeeded(dateNeeded, locale)
+      : '';
 
   return (
     <Link
@@ -116,7 +125,10 @@ export function JobCard({
             </span>
           )}
           {categoryName && (
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+            /* N14: caps/tracking are en-only — fidel has no case (africa-G.4) */
+            <span
+              className={`text-[11px] font-semibold text-ink-faint ${microCaps(locale)}`}
+            >
               {categoryName}
             </span>
           )}
@@ -131,7 +143,8 @@ export function JobCard({
       </div>
 
       {description && (
-        <p className="mt-2 line-clamp-2 text-xs text-ink-faint">
+        /* N14 floor: multi-line (possibly Amharic) body never below text-sm */
+        <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-ink-faint">
           {description}
         </p>
       )}
@@ -144,10 +157,10 @@ export function JobCard({
               <span className="truncate">{neighborhood}</span>
             </span>
           )}
-          {timing && (
+          {(timing || timingDate) && (
             <span className="flex items-center gap-1">
               <IconClock />
-              {t(TIMING_CHIP_KEY[timing])}
+              {timing ? t(TIMING_CHIP_KEY[timing]) : timingDate}
             </span>
           )}
         </div>

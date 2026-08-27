@@ -98,3 +98,55 @@ export function formatRelativeTime(
     return then.toISOString().slice(0, 10);
   }
 }
+
+const DUAL_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+};
+
+/**
+ * N15 — Ethiopian-calendar dual date (africa-G.3: a 7–8 year calendar offset
+ * is a real mis-booking hazard; Ethiopian date FIRST when locale=am).
+ *
+ * locale='am' → "21 ነሐሴ 2018 (27 ኦገስት 2026)"  — Ethiopic (Gregorian)
+ * locale='en' → "August 27, 2026"              — Gregorian only
+ *
+ * Render layer ONLY: storage stays timestamptz/ISO. If the engine lacks
+ * Ethiopic calendar data (resolvedOptions().calendar !== 'ethiopic', or Intl
+ * throws) the am path degrades to Gregorian-only — never a wrong Ethiopic
+ * date. Invalid input returns '' so callers can hide the line.
+ */
+export function formatDualDate(
+  iso: string | number | Date,
+  locale: Locale,
+): string {
+  const date = iso instanceof Date ? iso : new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const gregorian = (loc: string) => {
+    try {
+      return new Intl.DateTimeFormat(loc, DUAL_DATE_OPTIONS).format(date);
+    } catch {
+      return date.toISOString().slice(0, 10);
+    }
+  };
+
+  if (locale !== 'am') return gregorian('en');
+
+  try {
+    const ethiopic = new Intl.DateTimeFormat(
+      'am-ET-u-ca-ethiopic',
+      DUAL_DATE_OPTIONS,
+    );
+    // Engines without Ethiopic CLDR data silently resolve to another
+    // calendar — formatting anyway would show a GREGORIAN date labelled as
+    // Ethiopic, the exact mis-booking hazard. Check, don't hope.
+    if (ethiopic.resolvedOptions().calendar !== 'ethiopic') {
+      return gregorian('am-ET');
+    }
+    return `${ethiopic.format(date)} (${gregorian('am-ET')})`;
+  } catch {
+    return gregorian('am-ET');
+  }
+}

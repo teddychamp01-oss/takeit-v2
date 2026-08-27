@@ -2,6 +2,14 @@
 <html lang="am">
   <head>
     <meta charset="UTF-8" />
+    <!-- N1: the only origin the app talks to (SPEC project ref). Warms
+         DNS+TCP+TLS before the JS asks for data — LCP on Home is data-driven.
+         The RTT saving on 3G/4G is an ESTIMATE until measured on-device. -->
+    <link
+      rel="preconnect"
+      href="https://snfkefcluzkdeztdtdnk.supabase.co"
+      crossorigin
+    />
     <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
     <meta
       name="viewport"

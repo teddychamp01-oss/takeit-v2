@@ -1,8 +1,10 @@
 // Pure logic for the home screen — covered by vitest.
 
 import type { Locale, MessageKey } from '../../i18n';
-import { categoryName } from '../browse/logic';
+import { categoryName, displayRating } from '../browse/logic';
 import type { BadgeLevel, Category, WorkerListRow } from '../browse/types';
+import type { WorkerCardProps } from '../../components/WorkerCard';
+import type { SavedWorkerRow } from '../profile/types';
 
 export type GreetingSlot = 'morning' | 'afternoon' | 'evening';
 
@@ -66,6 +68,41 @@ export function rankAvailableNow<T extends RankableWorker>(
     if (rating !== 0) return rating;
     // Stable id tiebreak — plain code-unit compare, NOT locale-dependent.
     return a.user_id < b.user_id ? -1 : a.user_id > b.user_id ? 1 : 0;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// N2c — 'Your workers' saved rail (rebook loop). Input rows arrive from
+// fetchSavedWorkers already ordered most-recently-saved first with a STABLE
+// worker_id tiebreak — never alphabetical, never geographic (repo law 1);
+// this mapper only caps and reshapes, it never re-orders.
+// ---------------------------------------------------------------------------
+
+export const YOUR_WORKERS_RAIL_CAP = 5;
+
+/**
+ * Map saved-worker rows to compact WorkerCard props, capped for the rail.
+ * Preserves input order. rating 0 with 0 reviews maps to null (unrated shows
+ * as —, never "0.0") via displayRating.
+ */
+export function savedRailCards(
+  rows: readonly SavedWorkerRow[],
+  cap: number = YOUR_WORKERS_RAIL_CAP,
+): WorkerCardProps[] {
+  return rows.slice(0, Math.max(0, cap)).map((row) => {
+    const wp = row.worker_profiles;
+    return {
+      id: wp.user_id,
+      name: wp.profiles.display_name,
+      avatarUrl: wp.profiles.avatar_url,
+      verificationLevel: wp.verification_level,
+      ratingAvg: displayRating(wp.rating_avg, wp.review_count),
+      reviewCount: wp.review_count,
+      jobsCompleted: wp.jobs_completed,
+      priceMinCents: wp.price_min_cents,
+      priceMaxCents: wp.price_max_cents,
+      availability: wp.availability_status,
+    };
   });
 }
 

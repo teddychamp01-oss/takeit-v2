@@ -6,10 +6,18 @@
 // C3: the phone shown here is profiles.phone_masked (already masked
 // server-side) rendered through <MaskedPhone bookingConfirmed={false}> — the
 // full number never exists on this page.
+//
+// N5 (trust-F7/us-D1): the VerifiedBadge chip is tappable and opens a
+// BottomSheet saying per level exactly what WAS checked and what was NOT.
+// Every line maps 1:1 to a real flow in this repo (see SHEET_LINES) —
+// attributes only, never document contents (C2) — and the sheet always
+// carries the honesty line that Take It recommends meeting the worker first
+// (us-D2: a check is not a substitute for meeting in person).
 
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLocale } from '../../lib/i18n';
+import { microCaps } from '../../lib/typography';
 import { useSession } from '../../hooks/useSession';
 import { formatETB, formatRelativeTime } from '../../lib/format';
 import { PageHeader } from '../../components/PageHeader';
@@ -17,6 +25,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { SpinnerBlock } from '../../components/Spinner';
 import { Button } from '../../components/Button';
 import { Badge } from '../../components/Badge';
+import { BottomSheet } from '../../components/BottomSheet';
 import { RatingStars } from '../../components/RatingStars';
 import {
   VerifiedBadge,
@@ -68,12 +77,152 @@ const LEVEL_LABEL_KEY: Record<VerificationLevel, MessageKey> = {
   pro_certified: 'common.verificationProCertified',
 };
 
+// ---------------------------------------------------------------------------
+// N5 — badge tap-through sheet content. Each line maps 1:1 to a REAL flow:
+//   basic          → Telegram/phone sign-in confirmed the account (auth flow)
+//   id_verified    → manual_id: ID front/back + selfie uploaded into the
+//                    PRIVATE verifications bucket, decided by the ops team
+//                    (admin decideVerification); documents never shown (C2)
+//   fayda_verified → fayda_ekyc via the national Fayda ID (flag-gated flow)
+//   pro_certified  → certification reviewed/approved by ops (ladderProDesc)
+// Never invent a check that the flow does not perform; never grant more than
+// the level actually proves (Airbnb's badge dilution is the anti-pattern).
+// ---------------------------------------------------------------------------
+const SHEET_LINES: Record<
+  Exclude<VerificationLevel, 'none'>,
+  {
+    checked: readonly MessageKey[];
+    notChecked: readonly MessageKey[];
+    /** Show the "documents stay private" caption (document-based flows). */
+    docsPrivate: boolean;
+  }
+> = {
+  basic: {
+    checked: ['browse.badgeSheetBasicChecked'],
+    notChecked: ['browse.badgeSheetBasicNotId', 'browse.badgeSheetNotQuality'],
+    docsPrivate: false,
+  },
+  id_verified: {
+    checked: ['browse.badgeSheetIdChecked1', 'browse.badgeSheetIdChecked2'],
+    notChecked: ['browse.badgeSheetNotQuality'],
+    docsPrivate: true,
+  },
+  fayda_verified: {
+    checked: ['browse.badgeSheetFaydaChecked'],
+    notChecked: ['browse.badgeSheetNotQuality'],
+    docsPrivate: false,
+  },
+  pro_certified: {
+    checked: ['browse.badgeSheetProChecked'],
+    notChecked: ['browse.badgeSheetNotQuality'],
+    docsPrivate: true,
+  },
+};
+
+function SheetCheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className="mt-0.5 h-4 w-4 shrink-0 text-verified"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M8 0a8 8 0 100 16A8 8 0 008 0zm3.6 6.1l-4.2 4.5a.75.75 0 01-1.1 0L4.4 8.5a.75.75 0 011.1-1l1.35 1.5 3.65-3.9a.75.75 0 111.1 1z" />
+    </svg>
+  );
+}
+
+function SheetDashIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+    >
+      <circle cx="8" cy="8" r="6.5" />
+      <path d="M5 8h6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** The "what we checked" sheet — level 'none' never reaches here (no badge). */
+function VerificationSheet({
+  level,
+  open,
+  onClose,
+}: {
+  level: Exclude<VerificationLevel, 'none'>;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { t } = useLocale();
+  const def = SHEET_LINES[level];
+  return (
+    <BottomSheet open={open} onClose={onClose} title={t('browse.badgeSheetTitle')}>
+      <div className="space-y-4 pb-1">
+        <VerifiedBadge level={level} />
+
+        <div>
+          <h3 className="text-sm font-bold text-ink">
+            {t('browse.badgeSheetCheckedTitle')}
+          </h3>
+          <ul className="mt-1.5 space-y-1.5">
+            {def.checked.map((key) => (
+              <li
+                key={key}
+                className="flex items-start gap-2 text-sm leading-relaxed text-ink-light"
+              >
+                <SheetCheckIcon />
+                {t(key)}
+              </li>
+            ))}
+          </ul>
+          {def.docsPrivate && (
+            <p className="mt-2 text-sm leading-relaxed text-ink-faint">
+              {t('browse.badgeSheetDocsPrivate')}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <h3 className="text-sm font-bold text-ink">
+            {t('browse.badgeSheetNotCheckedTitle')}
+          </h3>
+          <ul className="mt-1.5 space-y-1.5">
+            {def.notChecked.map((key) => (
+              <li
+                key={key}
+                className="flex items-start gap-2 text-sm leading-relaxed text-ink-light"
+              >
+                <SheetDashIcon />
+                {t(key)}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Honesty line (us-D2) — always present, visually distinct. */}
+        <p className="rounded-xl bg-primary-50 p-3 text-sm leading-relaxed text-ink">
+          {t('browse.badgeSheetMeetFirst')}
+        </p>
+      </div>
+    </BottomSheet>
+  );
+}
+
 /** One cell of the stat trio (T10) — value above a tiny label. */
 function StatCell({ value, label }: { value: ReactNode; label: string }) {
+  const { locale } = useLocale();
   return (
     <div className="flex flex-col items-center justify-center gap-0.5 px-1">
       {value}
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">
+      {/* N14: caps/tracking en-only — fidel has no case (africa-G.4) */}
+      <p
+        className={`text-[10px] font-semibold text-ink-faint ${microCaps(locale)}`}
+      >
         {label}
       </p>
     </div>
@@ -135,6 +284,9 @@ export default function WorkerDetailPage() {
   // Optimistic local override for the saved toggle (null = follow the fetch).
   const [savedOverride, setSavedOverride] = useState<boolean | null>(null);
   const saved = savedOverride ?? savedInitial.data ?? false;
+
+  // N5: "what we checked" sheet, opened from the VerifiedBadge chip.
+  const [badgeSheetOpen, setBadgeSheetOpen] = useState(false);
 
   const toggleSaved = async () => {
     if (!user) {
@@ -242,9 +394,13 @@ export default function WorkerDetailPage() {
         <section className="rounded-2xl bg-white p-4 shadow-sm">
           <div className="flex items-start gap-3">
             {row.profiles.avatar_url ? (
+              /* N9: explicit dimensions guard CLS; top-of-page identity
+                 photo is an LCP candidate — never lazy. */
               <img
                 src={row.profiles.avatar_url}
                 alt=""
+                width={64}
+                height={64}
                 className="h-16 w-16 shrink-0 rounded-full object-cover"
               />
             ) : (
@@ -258,7 +414,12 @@ export default function WorkerDetailPage() {
             <div className="min-w-0 flex-1">
               <h2 className="truncate text-lg font-bold text-ink">{name}</h2>
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <VerifiedBadge level={row.verification_level} />
+                {/* N5: tapping the badge opens the "what we checked" sheet.
+                    Renders nothing for 'none', so the sheet stays honest. */}
+                <VerifiedBadge
+                  level={row.verification_level}
+                  onClick={() => setBadgeSheetOpen(true)}
+                />
                 <Badge tone="primary">
                   {t(BADGE_KEY[row.badge_level] ?? 'common.badgeNew')}
                 </Badge>
@@ -392,6 +553,13 @@ export default function WorkerDetailPage() {
         {/* Reviews — revealed only (double-blind) */}
         <section aria-label={t('browse.reviewsSection')}>
           <SectionTitle>{t('browse.reviewsSection')}</SectionTitle>
+          {/* N5/trust-F8: say the structural fake-review defense out loud.
+              True whether the list is empty or full, so it sits above both. */}
+          {!reviews.loading && !ratings.loading && !reviews.failed && !ratings.failed && (
+            <p className="mb-2 text-sm leading-relaxed text-ink-faint">
+              {t('browse.reviewsProvenance')}
+            </p>
+          )}
           {reviews.loading || ratings.loading ? (
             <SpinnerBlock />
           ) : reviews.failed || ratings.failed ? (
@@ -472,6 +640,15 @@ export default function WorkerDetailPage() {
           )}
         </section>
       </div>
+
+      {/* N5: badge tap-through sheet ('none' has no badge, so no sheet). */}
+      {row.verification_level !== 'none' && (
+        <VerificationSheet
+          level={row.verification_level}
+          open={badgeSheetOpen}
+          onClose={() => setBadgeSheetOpen(false)}
+        />
+      )}
 
       {/* Primary action — deep-link into post-job, prefilled */}
       <div

@@ -204,6 +204,12 @@ export default function MyJobsPage() {
           <p className="px-4 pt-3 text-xs text-ink-faint">
             {t('jobs.feedHint')}
           </p>
+          {/* N6c fixed anti-scam line (africa-B.3): applying is free, never
+              pay before work, report anything suspicious. Always visible on
+              the feed tab — loading, empty and full states alike. */}
+          <p className="mx-4 mt-3 rounded-xl bg-primary-50 p-3 text-sm leading-relaxed text-primary-800">
+            {t('jobs.feedAntiScam')}
+          </p>
         </>
       )}
 
@@ -259,7 +265,11 @@ function JobsList({
       />
     ) : (
       <EmptyState
-        title={t('jobs.emptyFeedTitle')}
+        // N11b: the REAL count the feed query returned — page.total is the
+        // server's exact count of RLS-matched open jobs, and with zero rows
+        // it is zero: the title says "0", never a vague "none match" (law 6:
+        // a live number, not an invented reassurance).
+        title={t('jobs.feedMatchCount', { count: page.total })}
         body={t('jobs.emptyFeedBody')}
         action={
           <Link

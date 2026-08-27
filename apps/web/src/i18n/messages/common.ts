@@ -27,6 +27,7 @@ const am = {
   optional: 'አማራጭ',
   comingSoon: 'በቅርቡ ይመጣል',
   offline: 'ከበይነመረብ ውጭ ነዎት',
+  offlineShowingSaved: 'ከበይነመረብ ውጭ ነዎት — የተቀመጠ መረጃ እየታየ ነው',
   reload: 'እንደገና ጫን',
   errorTitle: 'የሆነ ችግር ተፈጥሯል',
   errorBody: 'ይቅርታ! እባክዎ ገጹን እንደገና ይጫኑ።',
@@ -70,6 +71,13 @@ const am = {
   revealPhone: 'ቁጥሩን አሳይ',
   phoneShareWarning:
     'ለደህንነትዎ ሲባል ማስያዣ ከመረጋገጡ በፊት ስልክ ቁጥር አይለዋወጡ።',
+  // N12 — "Talk to Take It": a human on Telegram, one tap away.
+  supportTalk: 'ከTake It ጋር ይነጋገሩ',
+  // N16 — PWA install card (Chromium/Android beforeinstallprompt only).
+  installTitle: 'Take It ን ይጫኑ',
+  installBody: 'ወደ መነሻ ማያዎ ይጨምሩት — በአንድ ንክኪ ይክፈቱት።',
+  installAction: 'ጫን',
+  installDismiss: 'አሁን አይሆንም',
 } as const;
 
 const en: Record<keyof typeof am, string> = {
@@ -98,6 +106,7 @@ const en: Record<keyof typeof am, string> = {
   optional: 'Optional',
   comingSoon: 'Coming soon',
   offline: 'You are offline',
+  offlineShowingSaved: 'You are offline — showing saved data',
   reload: 'Reload',
   errorTitle: 'Something went wrong',
   errorBody: 'Sorry! Please reload the page.',
@@ -141,6 +150,11 @@ const en: Record<keyof typeof am, string> = {
   revealPhone: 'Show number',
   phoneShareWarning:
     'For your safety, do not share phone numbers before a booking is confirmed.',
+  supportTalk: 'Talk to Take It',
+  installTitle: 'Install Take It',
+  installBody: 'Add it to your home screen — open it with one tap.',
+  installAction: 'Install',
+  installDismiss: 'Not now',
 };
 
 export const common = { am, en };

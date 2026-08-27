@@ -36,6 +36,7 @@ import {
   URGENCY_PRESETS,
   WORKERS_MAX,
   WORKERS_MIN,
+  buildPackagePrefill,
   buildPostJobArgs,
   deriveTiming,
   formatDateNeeded,
@@ -43,6 +44,7 @@ import {
   localTodayIso,
   parseEtbToCents,
   resolveCategoryPrefill,
+  resolvePackageParam,
   rpcErrorKey,
   urgencyPresetDate,
   validatePostJobStep,
@@ -52,6 +54,7 @@ import {
 import {
   fetchActiveCategories,
   fetchOwnFlags,
+  fetchPackageById,
   postJob,
   type CategoryRow,
 } from './api';
@@ -89,6 +92,7 @@ export default function PostJobPage() {
   const todayIso = useMemo(() => localTodayIso(), []);
   const step = POST_JOB_STEPS[stepIndex];
   const categoryParam = searchParams.get('category');
+  const packageParam = searchParams.get('package');
 
   useEffect(() => {
     let cancelled = false;
@@ -112,14 +116,71 @@ export default function PostJobPage() {
   // tap on its card (which also advances to step 2); posting into a category
   // with min_verification_level > none is allowed for every customer — the
   // level gates WORKERS applying, and the review step calls it out.
+  //
+  // N3 extends the SAME prefill (one path, not a fork): ?package=<id> fetches
+  // the package and seeds title = its name, description = checklist lines +
+  // the extras sentence (the scope contract — no jobs.package_id column
+  // exists, so the description IS how the contract ships), budget = its base
+  // price (editable: the card's number is the starting number). Any failure
+  // — bad id, retired package, network — degrades to plain ?category=
+  // seeding; nothing here can dead-end the wizard.
   useEffect(() => {
     if (prefillDone || categories === null) return;
-    setPrefillDone(true);
-    const slug = resolveCategoryPrefill(categoryParam, categories);
-    if (!slug) return;
-    setForm((f) => (f.categorySlug === null ? { ...f, categorySlug: slug } : f));
-    setStepIndex((i) => (i === 0 ? 1 : i));
-  }, [categories, prefillDone, categoryParam]);
+
+    const applyCategoryOnly = () => {
+      const slug = resolveCategoryPrefill(categoryParam, categories);
+      if (!slug) return;
+      setForm((f) =>
+        f.categorySlug === null ? { ...f, categorySlug: slug } : f,
+      );
+      setStepIndex((i) => (i === 0 ? 1 : i));
+    };
+
+    const packageId = resolvePackageParam(packageParam);
+    if (!packageId) {
+      setPrefillDone(true);
+      applyCategoryOnly();
+      return;
+    }
+
+    let cancelled = false;
+    fetchPackageById(packageId)
+      .then((pkg) => {
+        if (cancelled) return;
+        setPrefillDone(true);
+        const seed = pkg
+          ? buildPackagePrefill(
+              pkg,
+              locale,
+              t('jobs.packageOnlyListed'),
+              categories,
+            )
+          : null;
+        if (!seed) {
+          applyCategoryOnly();
+          return;
+        }
+        setForm((f) =>
+          // Pristine check: the fetch is async, so never overwrite anything
+          // the user managed to enter while it was in flight.
+          f.categorySlug === null &&
+          f.title === '' &&
+          f.description === '' &&
+          f.budgetBirr === ''
+            ? { ...f, ...seed }
+            : f,
+        );
+        setStepIndex((i) => (i === 0 ? 1 : i));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPrefillDone(true);
+        applyCategoryOnly();
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [categories, prefillDone, categoryParam, packageParam, locale, t]);
 
   // Prefill the SERVICE neighborhood from the profile default — a starting
   // point the user can change; never from GPS (two-location model).

@@ -7,6 +7,11 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocale } from '../../lib/i18n';
 import { useSession } from '../../hooks/useSession';
+import {
+  readInstallCardDismissed,
+  useInstallPrompt,
+  writeInstallCardDismissed,
+} from '../../hooks/useInstallPrompt';
 import { formatRelativeTime } from '../../lib/format';
 import { PageHeader } from '../../components/PageHeader';
 import { LocaleSwitcher } from '../../components/LocaleSwitcher';
@@ -14,6 +19,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { SpinnerBlock } from '../../components/Spinner';
 import { Badge } from '../../components/Badge';
 import { Button } from '../../components/Button';
+import { SupportLink } from '../../components/SupportLink';
 import { WorkerCard } from '../../components/WorkerCard';
 import {
   fetchNotifications,
@@ -45,6 +51,63 @@ function savedWorkerCardProps(row: SavedWorkerRow) {
     priceMaxCents: wp.price_max_cents,
     availability: wp.availability_status,
   };
+}
+
+/**
+ * N16 — dismissible PWA install card. Rendered ONLY when the browser fired
+ * `beforeinstallprompt` (Chromium/Android); elsewhere it never appears.
+ * Dismissal is a per-device UI convenience flag, not business logic.
+ */
+function InstallCard() {
+  const { t } = useLocale();
+  const { canInstall, promptInstall } = useInstallPrompt();
+  const [dismissed, setDismissed] = useState(readInstallCardDismissed);
+
+  if (!canInstall || dismissed) return null;
+
+  const onDismiss = () => {
+    writeInstallCardDismissed();
+    setDismissed(true);
+  };
+
+  return (
+    <section className="rounded-2xl bg-white p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <svg
+          viewBox="0 0 24 24"
+          className="mt-0.5 h-6 w-6 shrink-0 text-primary-600"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M12 3v12" />
+          <path d="M7 10l5 5 5-5" />
+          <path d="M4 19h16" />
+        </svg>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-bold text-ink">{t('common.installTitle')}</h2>
+          <p className="mt-0.5 text-sm leading-relaxed text-ink-light">
+            {t('common.installBody')}
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <Button onClick={() => void promptInstall()}>
+          {t('common.installAction')}
+        </Button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="min-h-touch px-3 text-sm font-semibold text-ink-faint"
+        >
+          {t('common.installDismiss')}
+        </button>
+      </div>
+    </section>
+  );
 }
 
 function NotificationItem({
@@ -252,6 +315,9 @@ export default function MePage() {
             />
           ) : null)}
 
+        {/* ---- Install card (N16 — only where beforeinstallprompt fired) ---- */}
+        <InstallCard />
+
         {/* ---- Navigation rows ---- */}
         {profile.data && (
           <section className="space-y-2">
@@ -267,9 +333,17 @@ export default function MePage() {
               }
             />
             <RowLink to="/me/verification" title={t('verification.getVerified')} />
+            {/* N13 — safety tips + the report path, one tap from Me. */}
+            <RowLink
+              to="/me/safety"
+              title={t('safety.title')}
+              hint={t('safety.meRowHint')}
+            />
             {(roles.data?.length ?? 0) > 0 && (
               <RowLink to="/admin" title={t('profile.adminLink')} />
             )}
+            {/* N12 — a human on Telegram; renders nothing when unconfigured. */}
+            <SupportLink />
           </section>
         )}
 

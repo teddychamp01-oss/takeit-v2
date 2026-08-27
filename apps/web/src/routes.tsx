@@ -31,6 +31,7 @@ const WorkerProfileEditPage = lazy(
 const VerificationPage = lazy(
   () => import('./features/profile/VerificationPage'),
 );
+const SafetyPage = lazy(() => import('./features/profile/SafetyPage'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
 
 function Page({ children }: { children: ReactNode }) {
@@ -184,6 +185,16 @@ export function AppRoutes() {
             <Page>
               <RequireAuth>
                 <VerificationPage />
+              </RequireAuth>
+            </Page>
+          }
+        />
+        <Route
+          path="/me/safety"
+          element={
+            <Page>
+              <RequireAuth>
+                <SafetyPage />
               </RequireAuth>
             </Page>
           }
