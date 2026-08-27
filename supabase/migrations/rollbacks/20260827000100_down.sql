@@ -1,0 +1,13 @@
+-- Rollback for 20260827000100_extensions.sql
+--
+-- INTENTIONAL NO-OP for the extensions themselves.
+-- postgis / pgcrypto and the extensions schema are shared, platform-level
+-- objects on hosted Supabase (pgcrypto backs auth password hashing paths and
+-- other consumers). Dropping them from a rollback script is how you take a
+-- production project down.
+--
+-- If you are ABSOLUTELY sure (throwaway database only), run manually:
+--   -- drop extension if exists postgis cascade;
+--   -- pgcrypto predates this baseline on the live project (measured
+--   -- 2026-08-26): dropping it would remove an extension we did not add.
+select 1; -- keeps "apply this file" a defined, successful operation
