@@ -50,6 +50,7 @@ const am = {
   roleWorkerBody: 'አገልግሎት እሰጣለሁ',
   roleBoth: 'ሁለቱም',
   roleBothBody: 'ማግኘትም መስጠትም እፈልጋለሁ',
+  roleSwitchHint: 'በኋላ ከመለያዎ መቀየር ይችላሉ።',
   workerHint:
     'እንደ ባለሙያ ስራ ለመቀበል በኋላ ሙሉ የባለሙያ መገለጫዎን ያጠናቅቃሉ።',
   neighborhoodTitle: 'ዋና ሰፈርዎን ይምረጡ',
@@ -121,6 +122,7 @@ const en: Record<keyof typeof am, string> = {
   roleWorkerBody: 'I offer services',
   roleBoth: 'Both',
   roleBothBody: 'I want to hire and to work',
+  roleSwitchHint: 'You can switch later from your account.',
   workerHint:
     'To take jobs as a worker, you will complete your full worker profile later.',
   neighborhoodTitle: 'Choose your main neighborhood',

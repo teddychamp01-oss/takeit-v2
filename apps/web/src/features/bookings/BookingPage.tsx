@@ -25,8 +25,9 @@ import { EmptyState } from '../../components/EmptyState';
 import { MaskedPhone } from '../../components/MaskedPhone';
 import { PageHeader } from '../../components/PageHeader';
 import { SpinnerBlock } from '../../components/Spinner';
-import { StatusBadge } from '../../components/StatusBadge';
+import { StatusBadge, type BookingStatus } from '../../components/StatusBadge';
 import { TextArea } from '../../components/TextArea';
+import { useToast } from '../../components/Toast';
 import {
   cancelBooking,
   confirmCompletion,
@@ -41,7 +42,11 @@ import { PaymentCard } from './PaymentCard';
 import { ReviewSection } from './ReviewSection';
 import {
   BOOKING_ACTION_LABEL,
+  BOOKING_ACTION_TOAST,
+  BOOKING_STAGE_LABEL,
+  BOOKING_STAGES,
   bookingRole,
+  bookingStageIndex,
   buildCancelArgs,
   buildDisputeArgs,
   canCancel,
@@ -62,9 +67,90 @@ import type { MessageKey } from '../../i18n';
 
 type SheetMode = 'cancel' | 'dispute' | null;
 
+function StageCheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 8.5l3.2 3.2L13 5" />
+    </svg>
+  );
+}
+
+/**
+ * Vertical happy-path stepper (v1-adoption T4). PRESENTATION ONLY — it never
+ * triggers a transition; the RPC buttons below it do. Off-path statuses
+ * (cancelled/disputed) return null here and keep the StatusBadge as the
+ * single status surface.
+ */
+function BookingStepper({ status }: { status: BookingStatus }) {
+  const { t } = useLocale();
+  const currentIndex = bookingStageIndex(status);
+  if (currentIndex === null) return null;
+  return (
+    <ol
+      aria-label={t('bookings.stepperAria')}
+      className="mt-3 border-t border-ink/5 pt-3"
+    >
+      {BOOKING_STAGES.map((stage, i) => {
+        const done = i <= currentIndex;
+        const active = i === currentIndex;
+        const last = i === BOOKING_STAGES.length - 1;
+        return (
+          <li
+            key={stage}
+            className="flex gap-3"
+            aria-current={active ? 'step' : undefined}
+          >
+            <div className="flex flex-col items-center">
+              <span
+                aria-hidden="true"
+                className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 text-xs font-bold ${
+                  done
+                    ? 'brand-gradient border-transparent text-white'
+                    : 'border-ink/15 text-ink-faint'
+                }`}
+              >
+                {done ? <StageCheckIcon /> : i + 1}
+              </span>
+              {!last && (
+                <span
+                  aria-hidden="true"
+                  className={`w-0.5 flex-1 rounded-full ${
+                    i < currentIndex ? 'bg-primary' : 'bg-ink/10'
+                  }`}
+                />
+              )}
+            </div>
+            <p
+              className={`pt-1.5 text-sm font-semibold ${last ? '' : 'pb-4'} ${
+                active
+                  ? 'text-primary'
+                  : done
+                    ? 'text-ink'
+                    : 'text-ink-faint'
+              }`}
+            >
+              {t(BOOKING_STAGE_LABEL[stage])}
+            </p>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export default function BookingPage() {
   const { id } = useParams<{ id: string }>();
   const { t } = useLocale();
+  const toast = useToast();
   const { user, loading: sessionLoading } = useSession();
   const uid = user?.id ?? null;
 
@@ -141,8 +227,15 @@ export default function BookingPage() {
           ? markWorkerDone({ p_booking_id: booking.id })
           : confirmCompletion({ p_booking_id: booking.id });
     call
-      .then(() => bookingQ.reload())
-      .catch((e: unknown) => setActionErrorKey(rpcErrorKey(getErrorMessage(e))))
+      .then(() => {
+        toast(t(BOOKING_ACTION_TOAST[action]));
+        return bookingQ.reload();
+      })
+      .catch((e: unknown) => {
+        const key = rpcErrorKey(getErrorMessage(e));
+        setActionErrorKey(key);
+        toast(t(key), 'error');
+      })
       .finally(() => setActionBusy(false));
   };
 
@@ -170,10 +263,17 @@ export default function BookingPage() {
         : disputeBooking(buildDisputeArgs(booking.id, reason));
     call
       .then(() => {
+        toast(t(BOOKING_ACTION_TOAST[sheet]));
         setSheet(null);
         bookingQ.reload();
       })
-      .catch((e: unknown) => setActionErrorKey(rpcErrorKey(getErrorMessage(e))))
+      .catch((e: unknown) => {
+        const key = rpcErrorKey(getErrorMessage(e));
+        setActionErrorKey(key);
+        // The reason sheet covers the inline error line — the toast is the
+        // feedback the user actually sees while the sheet is still open.
+        toast(t(key), 'error');
+      })
       .finally(() => setActionBusy(false));
   };
 
@@ -234,6 +334,10 @@ export default function BookingPage() {
               {formatETB(booking.agreed_price_cents)}
             </span>
           </div>
+
+          {/* Happy-path stepper (T4); cancelled/disputed render nothing here
+              and stay on the StatusBadge above. */}
+          <BookingStepper status={booking.status} />
 
           <p className="mt-3 rounded-lg bg-cream px-3 py-2 text-sm text-ink-light">
             {t(statusHintKey(role, booking.status))}

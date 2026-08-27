@@ -48,6 +48,64 @@ export interface WorkerCardProps {
   priceMaxCents?: number | null;
   distanceKm?: number | null;
   availability: AvailabilityStatus;
+  /**
+   * ALREADY-LOCALIZED category display names — pages resolve slugs before
+   * passing them in (same convention as JobCard's categoryName; see
+   * categoryNamesFor in features/home/logic.ts). Joined into a one-line
+   * summary under the name.
+   */
+  categories?: string[];
+  /** Rail variant: fixed w-44, shrink-0 — for horizontal edge-bleed lists. */
+  compact?: boolean;
+}
+
+/** Avatar with brand-gradient initial fallback (never a blank circle). */
+function Avatar({
+  avatarUrl,
+  name,
+  sizeCls,
+}: {
+  avatarUrl?: string | null;
+  name: string;
+  sizeCls: string;
+}) {
+  return avatarUrl ? (
+    <img
+      src={avatarUrl}
+      alt=""
+      loading="lazy"
+      className={`${sizeCls} shrink-0 rounded-full object-cover`}
+    />
+  ) : (
+    <span
+      aria-hidden="true"
+      className={`brand-gradient flex ${sizeCls} shrink-0 items-center justify-center rounded-full font-bold text-white`}
+    >
+      {name.trim().charAt(0)}
+    </span>
+  );
+}
+
+/** Single-star rating for tight spots. Unrated shows —, never 0.0. */
+function RatingMini({ value, label }: { value: number | null; label: string }) {
+  const safe = value == null ? null : Math.max(0, Math.min(5, value));
+  return (
+    <span
+      className="inline-flex items-center gap-1 font-semibold text-ink"
+      role="img"
+      aria-label={`${label}: ${safe == null ? '—' : safe.toFixed(1)}`}
+    >
+      <svg
+        viewBox="0 0 20 20"
+        className="h-3 w-3 text-primary"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path d="M10 1.5l2.47 5.01 5.53.8-4 3.9.94 5.5L10 14.11l-4.94 2.6.94-5.5-4-3.9 5.53-.8L10 1.5z" />
+      </svg>
+      {safe == null ? '—' : safe.toFixed(1)}
+    </span>
+  );
 }
 
 export function WorkerCard({
@@ -62,9 +120,54 @@ export function WorkerCard({
   priceMaxCents,
   distanceKm,
   availability,
+  categories,
+  compact = false,
 }: WorkerCardProps) {
   const { locale, t } = useLocale();
   const avail = AVAILABILITY[availability];
+  const categoriesLine =
+    categories && categories.length > 0 ? categories.join(' • ') : null;
+
+  if (compact) {
+    return (
+      <Link
+        to={`/workers/${id}`}
+        className="block w-44 shrink-0 rounded-2xl bg-white p-3 shadow-card transition-colors active:bg-primary-50"
+      >
+        <div className="flex items-center gap-2">
+          <span className="relative shrink-0">
+            <Avatar avatarUrl={avatarUrl} name={name} sizeCls="h-10 w-10" />
+            <span
+              aria-hidden="true"
+              className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${avail.dot}`}
+            />
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-bold text-ink">
+              {name}
+            </span>
+            <VerifiedBadge level={verificationLevel} showLabel={false} />
+          </span>
+        </div>
+        {categoriesLine && (
+          <p className="mt-2 line-clamp-1 text-xs text-ink-faint">
+            {categoriesLine}
+          </p>
+        )}
+        <div className="mt-1 flex items-center justify-between gap-2 text-xs">
+          <RatingMini value={ratingAvg} label={t('common.rating')} />
+          {priceMinCents != null && (
+            <span className="shrink-0 font-bold text-ink">
+              {t('browse.priceFromShort', {
+                price: formatETB(priceMinCents),
+              })}
+            </span>
+          )}
+        </div>
+        <span className="sr-only">{t(avail.key)}</span>
+      </Link>
+    );
+  }
 
   const priceRange =
     priceMinCents != null && priceMaxCents != null
@@ -78,29 +181,20 @@ export function WorkerCard({
   return (
     <Link
       to={`/workers/${id}`}
-      className="block rounded-2xl bg-white p-4 shadow-sm transition-colors active:bg-primary-50"
+      className="block rounded-2xl bg-white p-4 shadow-card transition-colors active:bg-primary-50"
     >
       <div className="flex items-start gap-3">
-        {avatarUrl ? (
-          <img
-            src={avatarUrl}
-            alt=""
-            loading="lazy"
-            className="h-12 w-12 shrink-0 rounded-full object-cover"
-          />
-        ) : (
-          <span
-            aria-hidden="true"
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-100 text-lg font-bold text-primary-700"
-          >
-            {name.trim().charAt(0)}
-          </span>
-        )}
+        <Avatar avatarUrl={avatarUrl} name={name} sizeCls="h-12 w-12 text-lg" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="truncate font-semibold text-ink">{name}</span>
             <VerifiedBadge level={verificationLevel} showLabel={false} />
           </div>
+          {categoriesLine && (
+            <p className="mt-0.5 truncate text-xs text-ink-faint">
+              {categoriesLine}
+            </p>
+          )}
           <div className="mt-0.5">
             <RatingStars value={ratingAvg} count={reviewCount} />
           </div>

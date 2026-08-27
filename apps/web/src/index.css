@@ -3,10 +3,75 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Warm-look kit: brand gradient + warm-tinted shadows, recolored to the
+       v2 palette — gradient #F97316 (primary-500) -> #FB923C (primary-400);
+       shadow tints derived from primary-700 #C2410C ≈ hsl(18 88% 40%) (soft
+       ambient) and primary-500 #F97316 ≈ hsl(25 95% 53%) (button glow). */
+    --gradient-brand: linear-gradient(135deg, #f97316, #fb923c);
+    --shadow-card: 0 4px 16px -4px hsl(18 60% 30% / 0.08);
+    --shadow-button: 0 6px 18px -4px hsl(25 95% 53% / 0.4);
+    --shadow-elevated: 0 12px 40px -10px hsl(18 60% 30% / 0.18);
+  }
   html {
     -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-cream font-sans text-ink antialiased;
+  }
+}
+
+@layer components {
+  .brand-gradient {
+    background-image: var(--gradient-brand);
+  }
+}
+
+@layer utilities {
+  .animate-pop-in {
+    animation: pop-in 0.18s ease-out both;
+  }
+  .animate-slide-up {
+    animation: slide-up 0.25s ease-out both;
+  }
+  /* Horizontal rails scroll without a visible bar (edge-bleed pattern). */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slide-up {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Animation is decoration — fully off under prefers-reduced-motion. The
+   elements still appear (the keyframes only ADD motion to a visible end
+   state), so nothing is hidden from a reduced-motion user. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop-in,
+  .animate-slide-up {
+    animation: none;
   }
 }

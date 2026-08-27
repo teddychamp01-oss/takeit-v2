@@ -4,9 +4,13 @@ import {
   DEFAULT_AVAILABILITY,
   ID_IMAGE_MAX_INPUT_BYTES,
   MAX_PRICE_CENTS,
+  PROFILE_COMPLETION_FIELDS,
+  PROFILE_COMPLETION_WEIGHTS,
   SKILLS_MAX_COUNT,
+  VERIFICATION_LADDER,
   buildVerificationPath,
   centsToEtbInput,
+  computeProfileCompletion,
   fitWithin,
   hasPendingVerification,
   isMaskedContactSafe,
@@ -29,6 +33,8 @@ import {
   validateHours,
   validateIdImageFile,
   validatePrices,
+  verificationLevelIndex,
+  type ProfileCompletionInput,
 } from '../logic';
 import type { VerificationRow } from '../types';
 
@@ -477,5 +483,139 @@ describe('notificationRoute', () => {
     expect(notificationRoute({ booking_id: '../admin' })).toBeNull();
     expect(notificationRoute({ booking_id: 42 })).toBeNull();
     expect(notificationRoute([bookingId])).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Profile completion (T9) — computed, never hardcoded (Gate 3)
+// ---------------------------------------------------------------------------
+
+describe('computeProfileCompletion', () => {
+  const empty: ProfileCompletionInput = {
+    bio: null,
+    categories: [],
+    price_min_cents: null,
+    price_max_cents: null,
+    neighborhood: null,
+    avatar_url: null,
+    availability: null,
+  };
+  const full: ProfileCompletionInput = {
+    bio: 'Experienced cleaner, careful with keys and pets.',
+    categories: ['home-cleaning'],
+    price_min_cents: 30000,
+    price_max_cents: 50000,
+    neighborhood: 'Bole',
+    avatar_url: 'https://example.test/avatar.jpg',
+    availability: { days: ['mon', 'tue'], hours: '08:00-18:00' },
+  };
+
+  it('weights are fixed and sum to exactly 100', () => {
+    const sum = Object.values(PROFILE_COMPLETION_WEIGHTS).reduce(
+      (a, b) => a + b,
+      0,
+    );
+    expect(sum).toBe(100);
+    expect(Object.keys(PROFILE_COMPLETION_WEIGHTS).sort()).toEqual(
+      [...PROFILE_COMPLETION_FIELDS].sort(),
+    );
+  });
+
+  it('is 0% for an untouched profile — no hardcoded floor (the v1 sin)', () => {
+    const result = computeProfileCompletion(empty);
+    expect(result.percent).toBe(0);
+    expect(result.missing).toEqual([
+      'bio',
+      'categories',
+      'prices',
+      'neighborhood',
+      'avatar',
+      'availability',
+    ]);
+  });
+
+  it('is 100% with nothing missing when every field is filled', () => {
+    const result = computeProfileCompletion(full);
+    expect(result.percent).toBe(100);
+    expect(result.missing).toEqual([]);
+  });
+
+  it('whitespace-only strings do not count as filled', () => {
+    const result = computeProfileCompletion({
+      ...full,
+      bio: '   ',
+      neighborhood: '\t',
+      avatar_url: ' ',
+    });
+    expect(result.missing).toEqual(['bio', 'neighborhood', 'avatar']);
+    expect(result.percent).toBe(
+      100 -
+        PROFILE_COMPLETION_WEIGHTS.bio -
+        PROFILE_COMPLETION_WEIGHTS.neighborhood -
+        PROFILE_COMPLETION_WEIGHTS.avatar,
+    );
+  });
+
+  it('one price bound is enough, and 0 cents is a value, not absence', () => {
+    expect(
+      computeProfileCompletion({ ...empty, price_min_cents: 30000 }).percent,
+    ).toBe(PROFILE_COMPLETION_WEIGHTS.prices);
+    expect(
+      computeProfileCompletion({ ...empty, price_min_cents: 0 }).missing,
+    ).not.toContain('prices');
+  });
+
+  it('malformed availability jsonb counts as missing instead of crashing', () => {
+    expect(
+      computeProfileCompletion({ ...full, availability: 'garbage' }).missing,
+    ).toEqual(['availability']);
+    expect(
+      computeProfileCompletion({ ...full, availability: { days: [] } }).missing,
+    ).toEqual(['availability']);
+  });
+
+  it('partial completion sums the exact fixed weights of the filled fields', () => {
+    const result = computeProfileCompletion({
+      ...empty,
+      bio: 'x',
+      categories: ['tutors'],
+    });
+    expect(result.percent).toBe(
+      PROFILE_COMPLETION_WEIGHTS.bio + PROFILE_COMPLETION_WEIGHTS.categories,
+    );
+    expect(result.missing).toEqual([
+      'prices',
+      'neighborhood',
+      'avatar',
+      'availability',
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Verification ladder (T6)
+// ---------------------------------------------------------------------------
+
+describe('VERIFICATION_LADDER / verificationLevelIndex', () => {
+  it('covers all five enum values, ascending, exactly once', () => {
+    expect(VERIFICATION_LADDER.map((rung) => rung.level)).toEqual([
+      'none',
+      'basic',
+      'id_verified',
+      'fayda_verified',
+      'pro_certified',
+    ]);
+  });
+
+  it('maps each level to its rung index', () => {
+    expect(verificationLevelIndex('none')).toBe(0);
+    expect(verificationLevelIndex('basic')).toBe(1);
+    expect(verificationLevelIndex('id_verified')).toBe(2);
+    expect(verificationLevelIndex('fayda_verified')).toBe(3);
+    expect(verificationLevelIndex('pro_certified')).toBe(4);
+  });
+
+  it('degrades an unknown level to the bottom rung instead of crashing', () => {
+    expect(verificationLevelIndex('galactic_overlord' as never)).toBe(0);
   });
 });

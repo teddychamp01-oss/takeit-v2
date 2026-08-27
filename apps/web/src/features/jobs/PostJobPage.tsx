@@ -7,7 +7,7 @@
 // integer cents (C7); the diaspora contact phone is masked server-side (C3).
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useLocale } from '../../lib/i18n';
 import { useSession } from '../../hooks/useSession';
 import { containsPhoneNumber, maskPhone } from '../../lib/phone';
@@ -18,6 +18,7 @@ import { Input } from '../../components/Input';
 import { Select } from '../../components/Select';
 import { TextArea } from '../../components/TextArea';
 import { Spinner, SpinnerBlock } from '../../components/Spinner';
+import { useToast } from '../../components/Toast';
 import { NEIGHBORHOODS, isNeighborhood } from '../auth/validation';
 import type { MessageKey } from '../../i18n';
 import {
@@ -30,15 +31,20 @@ import {
   POST_JOB_STEPS,
   TIME_WINDOW_MAX,
   TIME_WINDOW_PRESETS,
+  TIMING_CHIP_KEY,
   TITLE_MAX,
+  URGENCY_PRESETS,
   WORKERS_MAX,
   WORKERS_MIN,
   buildPostJobArgs,
+  deriveTiming,
   formatDateNeeded,
   getErrorMessage,
   localTodayIso,
   parseEtbToCents,
+  resolveCategoryPrefill,
   rpcErrorKey,
+  urgencyPresetDate,
   validatePostJobStep,
   type FieldErrors,
   type PostJobForm,
@@ -64,6 +70,8 @@ export default function PostJobPage() {
   const { t, locale } = useLocale();
   const { user } = useSession();
   const navigate = useNavigate();
+  const toast = useToast();
+  const [searchParams] = useSearchParams();
 
   const [categories, setCategories] = useState<CategoryRow[] | null>(null);
   const [categoriesError, setCategoriesError] = useState(false);
@@ -75,9 +83,12 @@ export default function PostJobPage() {
   const [geoState, setGeoState] = useState<GeoState>('idle');
   const [submitting, setSubmitting] = useState(false);
   const [submitErrorKey, setSubmitErrorKey] = useState<MessageKey | null>(null);
+  // T8 ?category= deep link: applied at most once, after categories load.
+  const [prefillDone, setPrefillDone] = useState(false);
 
   const todayIso = useMemo(() => localTodayIso(), []);
   const step = POST_JOB_STEPS[stepIndex];
+  const categoryParam = searchParams.get('category');
 
   useEffect(() => {
     let cancelled = false;
@@ -94,6 +105,21 @@ export default function PostJobPage() {
       cancelled = true;
     };
   }, [categoriesReload]);
+
+  // T8: seed the category from ?category=<slug> and skip step 1 — but only
+  // when the slug names a loaded ACTIVE category, only once, and never over a
+  // choice the user already made. A seeded category behaves exactly like a
+  // tap on its card (which also advances to step 2); posting into a category
+  // with min_verification_level > none is allowed for every customer — the
+  // level gates WORKERS applying, and the review step calls it out.
+  useEffect(() => {
+    if (prefillDone || categories === null) return;
+    setPrefillDone(true);
+    const slug = resolveCategoryPrefill(categoryParam, categories);
+    if (!slug) return;
+    setForm((f) => (f.categorySlug === null ? { ...f, categorySlug: slug } : f));
+    setStepIndex((i) => (i === 0 ? 1 : i));
+  }, [categories, prefillDone, categoryParam]);
 
   // Prefill the SERVICE neighborhood from the profile default — a starting
   // point the user can change; never from GPS (two-location model).
@@ -181,6 +207,8 @@ export default function PostJobPage() {
     setSubmitErrorKey(null);
     try {
       const result = await postJob(buildPostJobArgs(form));
+      // The provider lives in AppShell, so the toast survives the navigation.
+      toast(t('jobs.postedToast'));
       navigate(`/jobs/${result.job_id}`, { replace: true });
     } catch (e) {
       setSubmitErrorKey(rpcErrorKey(getErrorMessage(e)));
@@ -305,6 +333,7 @@ export default function PostJobPage() {
               placeholder={t('jobs.descriptionPlaceholder')}
               maxLength={DESCRIPTION_MAX}
               rows={5}
+              hint={t('jobs.descriptionHint')}
               error={errors.description ? t(errors.description) : undefined}
             />
             {detailsPhoneWarn && (
@@ -440,6 +469,43 @@ export default function PostJobPage() {
 
         {step === 'schedule' && (
           <>
+            {/* T7 urgency chips — tap-first presets for the SAME dateNeeded
+                field (no urgency column): today / +7d window end / cleared.
+                The active chip is derived back via deriveTiming, so it also
+                reflects a date picked by hand below. */}
+            <div>
+              <span className="mb-1 block text-sm font-medium text-ink">
+                {t('jobs.urgencyLabel')}
+              </span>
+              <div
+                className="flex gap-2"
+                role="radiogroup"
+                aria-label={t('jobs.urgencyLabel')}
+              >
+                {URGENCY_PRESETS.map((preset) => {
+                  const active =
+                    deriveTiming(form.dateNeeded, todayIso) === preset;
+                  return (
+                    <button
+                      key={preset}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() =>
+                        update('dateNeeded', urgencyPresetDate(preset, todayIso))
+                      }
+                      className={`min-h-touch flex-1 rounded-full border-2 px-3 text-sm font-semibold transition-colors ${
+                        active
+                          ? 'border-primary bg-primary text-white'
+                          : 'border-ink/15 bg-white text-ink-light'
+                      }`}
+                    >
+                      {t(TIMING_CHIP_KEY[preset])}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <Input
               label={t('jobs.dateLabel')}
               type="date"
@@ -553,6 +619,14 @@ export default function PostJobPage() {
               {selectedCategory
                 ? `${selectedCategory.icon ?? ''} ${categoryName(selectedCategory)}`.trim()
                 : form.categorySlug}
+              {/* Shown here too because a T8 deep link skips the category
+                  grid where this note normally appears */}
+              {selectedCategory &&
+                selectedCategory.min_verification_level !== 'none' && (
+                  <span className="mt-0.5 block text-xs text-verified">
+                    {t('jobs.categoryNeedsVerification')}
+                  </span>
+                )}
             </ReviewRow>
             <ReviewRow label={t('jobs.titleLabel')}>
               {form.title.trim()}

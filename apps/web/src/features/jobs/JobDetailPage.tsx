@@ -18,6 +18,7 @@ import { formatETB, formatRelativeTime } from '../../lib/format';
 import { containsPhoneNumber } from '../../lib/phone';
 import { PageHeader } from '../../components/PageHeader';
 import { StatusBadge } from '../../components/StatusBadge';
+import { useToast } from '../../components/Toast';
 import { EmptyState } from '../../components/EmptyState';
 import { Spinner, SpinnerBlock } from '../../components/Spinner';
 import { Button } from '../../components/Button';
@@ -82,6 +83,7 @@ export default function JobDetailPage() {
   const { t, locale } = useLocale();
   const { user } = useSession();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [jobState, setJobState] = useState<JobState>({ status: 'loading' });
   const [jobReload, setJobReload] = useState(0);
@@ -197,6 +199,8 @@ export default function JobDetailPage() {
       const result = await acceptApplication(
         buildAcceptArgs(acceptTarget.id, parsed.cents),
       );
+      // The provider lives in AppShell, so the toast survives the navigation.
+      toast(t('jobs.acceptedToast'));
       navigate(`/bookings/${result.booking_id}`);
     } catch (e) {
       setPriceErrorKey(rpcErrorKey(getErrorMessage(e)));

@@ -7,7 +7,7 @@
 // server-side) rendered through <MaskedPhone bookingConfirmed={false}> — the
 // full number never exists on this page.
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLocale } from '../../lib/i18n';
 import { useSession } from '../../hooks/useSession';
@@ -18,7 +18,10 @@ import { SpinnerBlock } from '../../components/Spinner';
 import { Button } from '../../components/Button';
 import { Badge } from '../../components/Badge';
 import { RatingStars } from '../../components/RatingStars';
-import { VerifiedBadge } from '../../components/VerifiedBadge';
+import {
+  VerifiedBadge,
+  type VerificationLevel,
+} from '../../components/VerifiedBadge';
 import { MaskedPhone } from '../../components/MaskedPhone';
 import {
   fetchGuarantorCount,
@@ -56,6 +59,26 @@ const BADGE_KEY: Record<string, MessageKey> = {
   pro: 'common.badgePro',
   top: 'common.badgeTop',
 };
+
+const LEVEL_LABEL_KEY: Record<VerificationLevel, MessageKey> = {
+  none: 'common.verificationNone',
+  basic: 'common.verificationBasic',
+  id_verified: 'common.verificationIdVerified',
+  fayda_verified: 'common.verificationFaydaVerified',
+  pro_certified: 'common.verificationProCertified',
+};
+
+/** One cell of the stat trio (T10) — value above a tiny label. */
+function StatCell({ value, label }: { value: ReactNode; label: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-0.5 px-1">
+      {value}
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">
+        {label}
+      </p>
+    </div>
+  );
+}
 
 function HeartIcon({ filled }: { filled: boolean }) {
   return (
@@ -281,6 +304,44 @@ export default function WorkerDetailPage() {
                 />
               </p>
             )}
+          </div>
+        </section>
+
+        {/* Stat trio (T10): Rating / Jobs completed / Verification level —
+            all three values already fetched with the worker row. */}
+        <section
+          aria-label={t('browse.statsSection')}
+          className="rounded-2xl bg-white p-4 shadow-sm"
+        >
+          <div className="grid grid-cols-3 divide-x divide-ink/10">
+            <StatCell
+              value={
+                <p className="text-lg font-extrabold text-ink">
+                  {rating == null ? '—' : rating.toFixed(1)}
+                </p>
+              }
+              label={t('common.rating')}
+            />
+            <StatCell
+              value={
+                <p className="text-lg font-extrabold text-ink">
+                  {row.jobs_completed}
+                </p>
+              }
+              label={t('browse.statJobsCompleted')}
+            />
+            <StatCell
+              value={
+                // 'none' renders as '—': absence of trust is shown by
+                // absence, never by a scary label (VerifiedBadge's rule).
+                <p className="text-center text-sm font-bold leading-tight text-ink">
+                  {row.verification_level === 'none'
+                    ? '—'
+                    : t(LEVEL_LABEL_KEY[row.verification_level])}
+                </p>
+              }
+              label={t('browse.statVerification')}
+            />
           </div>
         </section>
 

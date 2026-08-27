@@ -32,6 +32,7 @@ export default tseslint.config(
       'src/lib/i18n.tsx',
       'src/hooks/useSession.tsx',
       'src/components/ErrorBoundary.tsx',
+      'src/components/Toast.tsx',
     ],
     rules: { 'react-refresh/only-export-components': 'off' },
   },

@@ -55,6 +55,13 @@ export default {
           'sans-serif',
         ],
       },
+      // Warm-tinted shadows — values live as CSS vars in src/index.css so the
+      // tint stays next to the gradient it is derived from.
+      boxShadow: {
+        card: 'var(--shadow-card)',
+        button: 'var(--shadow-button)',
+        elevated: 'var(--shadow-elevated)',
+      },
       // 44px minimum touch target (h-touch / w-touch / min-h-touch …)
       spacing: {
         touch: '2.75rem',

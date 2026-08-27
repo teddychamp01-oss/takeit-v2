@@ -1,28 +1,34 @@
-// Home — greeting, 8-category grid, 'Available Now' (green dot) section,
-// recent open jobs teaser, trust strip.
+// Home — gradient hero (greeting + search entry), overlapping quick-action
+// cards, 8-category grid, 'Available Now' edge-bleed rail, recent open jobs
+// teaser (shared JobCard), trust strip.
 //
 // RLS reality: the catalog (categories) is anon-readable; worker profiles and
 // jobs require a signed-in user, so signed-out visitors get the grid + trust
 // strip + a sign-in card instead of half-broken queries.
 //
-// Ordering law: 'Available Now' is most-verified first with a STABLE user_id
-// tiebreak — geography (or anything else) is never decided by the alphabet.
+// Ordering law: the 'Available Now' rail ranks badge_level, then rating, then
+// a STABLE user_id tiebreak (rankAvailableNow) — geography (or anything else)
+// is never decided by the alphabet.
 
+import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocale } from '../../lib/i18n';
 import { useSession } from '../../hooks/useSession';
-import { formatETB, formatRelativeTime } from '../../lib/format';
-import { PageHeader } from '../../components/PageHeader';
+import { formatRelativeTime } from '../../lib/format';
 import { LocaleSwitcher } from '../../components/LocaleSwitcher';
 import { SpinnerBlock } from '../../components/Spinner';
 import { WorkerCard } from '../../components/WorkerCard';
-import { StatusBadge } from '../../components/StatusBadge';
+import { JobCard } from '../../components/JobCard';
 import {
   fetchAvailableNowWorkers,
   fetchCategories,
   fetchOpenJobsTeaser,
 } from '../browse/api';
-import { neighborhoodLabel, workerCardFromListRow } from '../browse/logic';
+import {
+  categoryName,
+  neighborhoodLabel,
+  workerCardFromListRow,
+} from '../browse/logic';
 import { useAsync } from '../browse/useAsync';
 import {
   CategoryGrid,
@@ -30,8 +36,17 @@ import {
   SectionTitle,
   SignInCard,
 } from '../browse/ui';
-import { GREETING_KEY, greetingSlot } from './logic';
+import {
+  GREETING_KEY,
+  categoryNamesFor,
+  greetingSlot,
+  rankAvailableNow,
+} from './logic';
 import type { MessageKey } from '../../i18n';
+
+/** Deep link into the post-job wizard with a seeded category (Track B reads
+ *  the `?category=` param — this page only emits the link). */
+const ERRANDS_POST_LINK = '/post?category=errands-city-help';
 
 const TRUST_ITEMS: readonly {
   titleKey: MessageKey;
@@ -91,38 +106,103 @@ export default function HomePage() {
   );
   const openJobs = useAsync(fetchOpenJobsTeaser, 'home:openJobs', !!user);
 
+  const categoryList = useMemo(() => categories.data ?? [], [categories.data]);
+  const categoryBySlug = useMemo(
+    () => new Map(categoryList.map((category) => [category.slug, category])),
+    [categoryList],
+  );
+  const railWorkers = useMemo(
+    () => rankAvailableNow(availableNow.data ?? []),
+    [availableNow.data],
+  );
+
   return (
     <div>
-      <PageHeader title={t('common.appName')} action={<LocaleSwitcher />} />
-      <div className="space-y-5 p-4">
-        <div>
-          <h2 className="text-xl font-bold text-ink">
+      {/* Gradient hero — wraps the greeting + search entry (v1-adoption T2). */}
+      <header className="brand-gradient rounded-b-[2rem] px-5 pb-8 pt-5 text-white">
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-lg font-extrabold">{t('common.appName')}</h1>
+          <div className="rounded-xl bg-white/95 shadow-sm">
+            <LocaleSwitcher />
+          </div>
+        </div>
+        <div className="mt-4">
+          <h2 className="text-2xl font-extrabold">
             {t(GREETING_KEY[greetingSlot(new Date().getHours())])}
           </h2>
-          <p className="text-sm text-ink-light">{t('common.tagline')}</p>
+          <p className="mt-0.5 text-sm opacity-90">{t('common.tagline')}</p>
         </div>
-
-        {/* Search entry — navigates to Browse where the real search lives */}
-        <button
-          type="button"
-          onClick={() => navigate('/browse')}
-          className="flex w-full min-h-touch items-center gap-2 rounded-xl border border-ink/15 bg-white px-4 text-left text-base text-ink-faint"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className="h-5 w-5 shrink-0"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            aria-hidden="true"
+        <div className="mt-4">
+          <p className="text-sm font-semibold">{t('home.heroSubline')}</p>
+          {/* Search entry — navigates to Browse where the real search lives */}
+          <button
+            type="button"
+            onClick={() => navigate('/browse')}
+            className="mt-2 flex w-full min-h-touch items-center gap-2 rounded-full bg-white px-4 text-left text-sm text-ink-faint shadow-button"
           >
-            <circle cx="11" cy="11" r="6.5" />
-            <path d="M20.5 20.5l-4.9-4.9" />
-          </svg>
-          {t('home.searchPlaceholder')}
-        </button>
+            <svg
+              viewBox="0 0 24 24"
+              className="h-5 w-5 shrink-0"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="6.5" />
+              <path d="M20.5 20.5l-4.9-4.9" />
+            </svg>
+            {t('home.searchPlaceholder')}
+          </button>
+        </div>
+      </header>
 
+      {/* Quick actions — pulled up over the hero's rounded bottom edge. */}
+      <div className="-mt-4 mx-4 grid grid-cols-2 gap-3">
+        <Link
+          to="/post"
+          className="rounded-2xl bg-ink p-4 text-white shadow-elevated transition motion-safe:active:scale-95"
+        >
+          <span className="flex items-center gap-1.5 font-bold">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4 shrink-0"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            {t('home.postJobCardTitle')}
+          </span>
+          <span className="mt-1 block text-[11px] opacity-80">
+            {t('home.postJobCardBody')}
+          </span>
+        </Link>
+        <Link
+          to={ERRANDS_POST_LINK}
+          className="rounded-2xl border border-ink/10 bg-white p-4 shadow-card transition motion-safe:active:scale-95"
+        >
+          <span className="flex items-center gap-1.5 font-bold text-primary-700">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4 shrink-0"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path d="M13 2L4.5 13.5h5L11 22l8.5-11.5h-5L13 2z" />
+            </svg>
+            {t('home.errandsCardTitle')}
+          </span>
+          <span className="mt-1 block text-[11px] text-ink-faint">
+            {t('home.errandsCardBody')}
+          </span>
+        </Link>
+      </div>
+
+      <div className="space-y-5 p-4">
         <section aria-label={t('home.categoriesSection')}>
           <SectionTitle>{t('home.categoriesSection')}</SectionTitle>
           {categories.loading ? (
@@ -130,7 +210,7 @@ export default function HomePage() {
           ) : categories.failed ? (
             <ErrorCard onRetry={categories.reload} />
           ) : (
-            <CategoryGrid categories={categories.data ?? []} />
+            <CategoryGrid categories={categoryList} />
           )}
         </section>
 
@@ -166,15 +246,24 @@ export default function HomePage() {
                 <SpinnerBlock />
               ) : availableNow.failed ? (
                 <ErrorCard onRetry={availableNow.reload} />
-              ) : (availableNow.data ?? []).length === 0 ? (
+              ) : railWorkers.length === 0 ? (
                 <p className="text-sm text-ink-faint">
                   {t('home.noAvailableNow')}
                 </p>
               ) : (
-                <ul className="space-y-2">
-                  {(availableNow.data ?? []).map((row) => (
-                    <li key={row.user_id}>
-                      <WorkerCard {...workerCardFromListRow(row)} />
+                /* Edge-bleed horizontal rail of compact cards. */
+                <ul className="-mx-4 flex gap-3 overflow-x-auto no-scrollbar px-4 pb-1">
+                  {railWorkers.map((row) => (
+                    <li key={row.user_id} className="shrink-0">
+                      <WorkerCard
+                        {...workerCardFromListRow(row)}
+                        categories={categoryNamesFor(
+                          row.categories,
+                          categoryList,
+                          locale,
+                        )}
+                        compact
+                      />
                     </li>
                   ))}
                 </ul>
@@ -191,39 +280,33 @@ export default function HomePage() {
                 <p className="text-sm text-ink-faint">{t('home.noRecentJobs')}</p>
               ) : (
                 <ul className="space-y-2">
-                  {(openJobs.data ?? []).map((job) => (
-                    <li key={job.id}>
-                      <Link
-                        to={`/jobs/${job.id}`}
-                        className="block rounded-2xl bg-white p-4 shadow-sm transition-colors active:bg-primary-50"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="min-w-0 flex-1 truncate font-semibold text-ink">
-                            {job.title}
-                          </span>
-                          <StatusBadge kind="job" status={job.status} />
-                        </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-ink-faint">
-                          {job.service_neighborhood && (
-                            <span>
-                              {neighborhoodLabel(
-                                job.service_neighborhood,
-                                locale,
-                              )}
-                            </span>
+                  {(openJobs.data ?? []).map((job) => {
+                    const category = categoryBySlug.get(job.category_slug);
+                    return (
+                      <li key={job.id}>
+                        {/* dateNeeded is OMITTED — the teaser row carries no
+                            date info, so no timing chip (never a false one). */}
+                        <JobCard
+                          id={job.id}
+                          title={job.title}
+                          status={job.status}
+                          categoryIcon={category?.icon}
+                          categoryName={
+                            category ? categoryName(category, locale) : null
+                          }
+                          neighborhood={neighborhoodLabel(
+                            job.service_neighborhood,
+                            locale,
                           )}
-                          {job.budget_cents != null && (
-                            <span className="font-medium text-ink-light">
-                              {formatETB(job.budget_cents)}
-                            </span>
-                          )}
-                          <span>
+                          budgetCents={job.budget_cents}
+                        >
+                          <div className="mt-2 text-[11px] text-ink-faint">
                             {formatRelativeTime(job.created_at, locale)}
-                          </span>
-                        </div>
-                      </Link>
-                    </li>
-                  ))}
+                          </div>
+                        </JobCard>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </section>

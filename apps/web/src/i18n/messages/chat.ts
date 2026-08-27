@@ -9,7 +9,7 @@ const am = {
   inputPlaceholder: 'መልዕክት ይጻፉ…',
   phoneWarning: 'ማስያዣ ከመረጋገጡ በፊት ስልክ ቁጥር ማጋራት አይመከርም።',
   emptyTitle: 'እስካሁን መልዕክት የለም',
-  emptyBody: 'ውይይቱን በመልዕክት ይጀምሩ።',
+  emptyBody: 'ሰላም ይበሉ 👋',
   closed: 'ማስያዣው ስለተሰረዘ ውይይቱ ተዘግቷል።',
   maskedNotice: 'መልዕክትዎ ስልክ ቁጥር ስለያዘ ቁጥሩ በስርዓቱ ተሸፍኗል።',
   sendFailed: 'መልዕክቱ አልተላከም። እባክዎ እንደገና ይሞክሩ።',
@@ -25,7 +25,7 @@ const en: Record<keyof typeof am, string> = {
   phoneWarning:
     'Sharing phone numbers before a booking is confirmed is not recommended.',
   emptyTitle: 'No messages yet',
-  emptyBody: 'Start the conversation with a message.',
+  emptyBody: 'Say hi 👋',
   closed: 'This chat is closed because the booking was cancelled.',
   maskedNotice:
     'Your message contained a phone number, so the number was masked.',

@@ -13,6 +13,7 @@
 
 import { containsPhoneNumber, maskPhone } from '../../lib/phone';
 import type { MessageKey } from '../../i18n';
+import type { VerificationLevel } from '../../components/VerifiedBadge';
 import type { GuarantorType, VerificationRow } from './types';
 
 // ---------------------------------------------------------------------------
@@ -408,6 +409,123 @@ export function latestVerification(
 
 export function hasPendingVerification(rows: readonly VerificationRow[]): boolean {
   return rows.some((row) => row.status === 'pending');
+}
+
+// ---------------------------------------------------------------------------
+// Verification ladder (T6) — the full enum as ascending rungs. Order mirrors
+// the worker_profiles.verification_level Postgres enum EXACTLY; the guarantor
+// layer is NOT a rung of this enum (it is an orthogonal trust annotation).
+// ---------------------------------------------------------------------------
+export const VERIFICATION_LADDER = [
+  {
+    level: 'none',
+    labelKey: 'common.verificationNone',
+    descKey: 'verification.ladderNoneDesc',
+  },
+  {
+    level: 'basic',
+    labelKey: 'common.verificationBasic',
+    descKey: 'verification.ladderBasicDesc',
+  },
+  {
+    level: 'id_verified',
+    labelKey: 'common.verificationIdVerified',
+    descKey: 'verification.ladderIdDesc',
+  },
+  {
+    level: 'fayda_verified',
+    labelKey: 'common.verificationFaydaVerified',
+    descKey: 'verification.ladderFaydaDesc',
+  },
+  {
+    level: 'pro_certified',
+    labelKey: 'common.verificationProCertified',
+    descKey: 'verification.ladderProDesc',
+  },
+] as const satisfies readonly {
+  level: VerificationLevel;
+  labelKey: MessageKey;
+  descKey: MessageKey;
+}[];
+
+/**
+ * Rung index for a level. An unknown value (future enum member reaching an
+ * old client) degrades to the bottom rung instead of crashing the ladder.
+ */
+export function verificationLevelIndex(level: VerificationLevel): number {
+  const index = VERIFICATION_LADDER.findIndex((rung) => rung.level === level);
+  return index === -1 ? 0 : index;
+}
+
+// ---------------------------------------------------------------------------
+// Profile completion (T9) — COMPUTED from real fields with fixed weights.
+// Never a hardcoded % (Gate 3: a number is measured or it is labelled
+// ESTIMATE — v1 shipped a hardcoded 40% and that exact sin stops here).
+// ---------------------------------------------------------------------------
+export const PROFILE_COMPLETION_FIELDS = [
+  'bio',
+  'categories',
+  'prices',
+  'neighborhood',
+  'avatar',
+  'availability',
+] as const;
+export type ProfileCompletionField = (typeof PROFILE_COMPLETION_FIELDS)[number];
+
+/** Fixed weights, summing to exactly 100 (asserted by test). */
+export const PROFILE_COMPLETION_WEIGHTS: Record<ProfileCompletionField, number> =
+  {
+    bio: 20,
+    categories: 20,
+    prices: 15,
+    neighborhood: 15,
+    avatar: 15,
+    availability: 15,
+  };
+
+/** Field names mirror the DB rows so callers can pass row values directly. */
+export interface ProfileCompletionInput {
+  bio: string | null;
+  categories: readonly string[];
+  price_min_cents: number | null;
+  price_max_cents: number | null;
+  neighborhood: string | null;
+  avatar_url: string | null;
+  /** worker_profiles.availability jsonb — parsed defensively, never trusted. */
+  availability: unknown;
+}
+
+export interface ProfileCompletion {
+  /** Integer 0–100 — the sum of the weights of the filled fields. */
+  percent: number;
+  /** Unfilled fields, in PROFILE_COMPLETION_FIELDS order. */
+  missing: ProfileCompletionField[];
+}
+
+/**
+ * Compute profile completion from the real field values. A field counts as
+ * filled only on substance: whitespace-only strings do not count, a price of
+ * 0 cents DOES (0 is a value, not absence), and availability counts once at
+ * least one working day is set (malformed jsonb degrades to "missing").
+ */
+export function computeProfileCompletion(
+  input: ProfileCompletionInput,
+): ProfileCompletion {
+  const filled: Record<ProfileCompletionField, boolean> = {
+    bio: (input.bio ?? '').trim().length > 0,
+    categories: input.categories.length > 0,
+    prices: input.price_min_cents != null || input.price_max_cents != null,
+    neighborhood: (input.neighborhood ?? '').trim().length > 0,
+    avatar: (input.avatar_url ?? '').trim().length > 0,
+    availability: parseAvailability(input.availability).days.length > 0,
+  };
+  let percent = 0;
+  const missing: ProfileCompletionField[] = [];
+  for (const field of PROFILE_COMPLETION_FIELDS) {
+    if (filled[field]) percent += PROFILE_COMPLETION_WEIGHTS[field];
+    else missing.push(field);
+  }
+  return { percent, missing };
 }
 
 // ---------------------------------------------------------------------------

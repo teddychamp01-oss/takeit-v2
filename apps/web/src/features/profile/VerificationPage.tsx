@@ -36,12 +36,14 @@ import {
 import { compressIdImage } from './idImage';
 import {
   GUARANTOR_TYPES,
+  VERIFICATION_LADDER,
   hasPendingVerification,
   latestVerification,
   maskGuarantorContact,
   validateGuarantorName,
   validateGuarantorStatement,
   validateIdImageFile,
+  verificationLevelIndex,
   type IdImageKind,
 } from './logic';
 import { useAsync } from './useAsync';
@@ -71,25 +73,145 @@ function PhotoField({
 }) {
   const { t } = useLocale();
   return (
-    <div className="rounded-2xl bg-white p-3 shadow-sm">
-      <span className="mb-1 block text-sm font-medium text-ink">{label}</span>
-      <div className="flex items-center justify-between gap-2">
-        <span className="min-w-0 flex-1 truncate text-sm text-ink-faint">
-          {file ? `✓ ${t('verification.photoSelected')}` : '—'}
+    <div>
+      {/* The whole card is the tap target; the border flips to success green
+          once a photo is chosen (upload happens on submit — the copy says
+          "selected", not "uploaded", because that is what is true). */}
+      <label
+        className={`block cursor-pointer rounded-2xl border-2 bg-white p-3 shadow-sm transition-colors ${
+          file ? 'border-verified' : 'border-transparent'
+        }`}
+      >
+        <span className="mb-1 block text-sm font-medium text-ink">{label}</span>
+        <span className="flex items-center justify-between gap-2">
+          <span
+            className={`min-w-0 flex-1 truncate text-sm ${
+              file ? 'font-medium text-verified' : 'text-ink-faint'
+            }`}
+          >
+            {file
+              ? `✓ ${t('verification.photoSelected')}`
+              : t('verification.tapToAddPhoto')}
+          </span>
+          <span className="inline-flex min-h-touch shrink-0 items-center rounded-xl border border-primary px-4 text-sm font-semibold text-primary-600 active:bg-primary-50">
+            {file ? t('verification.changePhoto') : t('verification.choosePhoto')}
+          </span>
         </span>
-        <label className="inline-flex min-h-touch cursor-pointer items-center rounded-xl border border-primary px-4 text-sm font-semibold text-primary-600 active:bg-primary-50">
-          {file ? t('verification.changePhoto') : t('verification.choosePhoto')}
-          <input
-            type="file"
-            accept="image/*"
-            capture={capture}
-            className="hidden"
-            onChange={(e) => onSelect(e.target.files?.[0] ?? null)}
-          />
-        </label>
-      </div>
+        <input
+          type="file"
+          accept="image/*"
+          capture={capture}
+          className="hidden"
+          onChange={(e) => onSelect(e.target.files?.[0] ?? null)}
+        />
+      </label>
       {error && <p className="mt-1 text-sm text-status-disputed">{t(error)}</p>}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Verification ladder (T6) — every rung of the enum, current level
+// highlighted; the guarantor layer rides along as an annotated rung.
+// ---------------------------------------------------------------------------
+function RungCheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
+function RungPlusIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+function VerificationLadder({ currentIndex }: { currentIndex: number }) {
+  const { t } = useLocale();
+  return (
+    <ol className="mt-4 space-y-1.5" aria-label={t('verification.ladderTitle')}>
+      {VERIFICATION_LADDER.map((rung, i) => {
+        const reached = i <= currentIndex;
+        const isCurrent = i === currentIndex;
+        return (
+          <li
+            key={rung.level}
+            aria-current={isCurrent ? 'step' : undefined}
+            className={`flex items-start gap-3 rounded-xl p-2 ${
+              isCurrent ? 'bg-primary-50' : ''
+            }`}
+          >
+            <span
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                reached
+                  ? 'brand-gradient text-white'
+                  : 'border-2 border-ink/15 bg-white text-ink-faint'
+              }`}
+            >
+              {reached ? <RungCheckIcon /> : i + 1}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex flex-wrap items-center gap-1.5">
+                <span
+                  className={`text-sm font-semibold ${
+                    isCurrent
+                      ? 'text-primary-700'
+                      : reached
+                        ? 'text-ink'
+                        : 'text-ink-light'
+                  }`}
+                >
+                  {t(rung.labelKey)}
+                </span>
+                {isCurrent && (
+                  <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-bold text-primary-700">
+                    {t('verification.ladderCurrentTag')}
+                  </span>
+                )}
+              </span>
+              <span className="block text-xs text-ink-faint">
+                {t(rung.descKey)}
+              </span>
+            </span>
+          </li>
+        );
+      })}
+      {/* Guarantor layer — an annotation, not an enum rung. */}
+      <li className="mt-1 flex items-start gap-3 border-t border-dashed border-ink/10 p-2 pt-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-verified text-verified">
+          <RungPlusIcon />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-ink">
+            {t('verification.guarantorsTitle')}
+          </span>
+          <span className="block text-xs text-ink-faint">
+            {t('verification.ladderGuarantorDesc')}
+          </span>
+        </span>
+      </li>
+    </ol>
   );
 }
 
@@ -285,7 +407,7 @@ export default function VerificationPage() {
     <div>
       <PageHeader title={t('verification.title')} back />
       <div className="space-y-5 p-4">
-        {/* ---- Current level ---- */}
+        {/* ---- Current level + ladder ---- */}
         <section className="rounded-2xl bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-semibold text-ink">
@@ -304,6 +426,15 @@ export default function VerificationPage() {
               </span>
             )}
           </div>
+          {/* Ladder only when the level is actually known (failed query ≠
+              'none' — the same claim-nothing rule as the chip above). */}
+          {!worker.loading && !worker.failed && (
+            <VerificationLadder
+              currentIndex={verificationLevelIndex(
+                worker.data?.verification_level ?? 'none',
+              )}
+            />
+          )}
         </section>
 
         {/* ---- Status timeline ---- */}

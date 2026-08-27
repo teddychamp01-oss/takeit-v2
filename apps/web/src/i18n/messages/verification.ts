@@ -10,6 +10,15 @@ const am = {
   getVerified: 'ማንነትዎን ያረጋግጡ',
   currentLevel: 'የአሁን የማረጋገጫ ደረጃ',
 
+  ladderTitle: 'የማረጋገጫ ደረጃዎች',
+  ladderCurrentTag: 'አሁን ያሉበት',
+  ladderNoneDesc: 'መለያዎ ተፈጥሯል፤ ማንነትዎ ገና አልተረጋገጠም።',
+  ladderBasicDesc: 'ስልክዎ ወይም የቴሌግራም መለያዎ ተረጋግጧል።',
+  ladderIdDesc: 'መታወቂያዎ በሠራተኞቻችን ታይቶ ጸድቋል።',
+  ladderFaydaDesc: 'ማንነትዎ በብሔራዊ የፋይዳ መታወቂያ (eSignet) ተረጋግጧል።',
+  ladderProDesc: 'የሙያ ብቃት ማስረጃዎ ቀርቦ ጸድቋል።',
+  ladderGuarantorDesc: 'ዋሶች በማንኛውም ደረጃ ላይ ተጨማሪ እምነት ይጨምራሉ።',
+
   timelineTitle: 'የማረጋገጫ ታሪክ',
   timelineEmpty: 'እስካሁን ምንም የማረጋገጫ ጥያቄ አላስገቡም።',
   statusPending: 'በመጠባበቅ ላይ',
@@ -30,6 +39,7 @@ const am = {
   choosePhoto: 'ፎቶ ምረጥ',
   changePhoto: 'ፎቶ ቀይር',
   photoSelected: 'ፎቶ ተመርጧል',
+  tapToAddPhoto: 'ፎቶ ለመጨመር ይንኩ',
   fileTypeError: 'እባክዎ የፎቶ ፋይል ይምረጡ።',
   fileTooLarge: 'ፎቶው በጣም ትልቅ ነው (እስከ 10MB)።',
   processError: 'ፎቶውን ማዘጋጀት አልተቻለም። እባክዎ ሌላ ፎቶ ይሞክሩ።',
@@ -83,6 +93,16 @@ const en: Record<keyof typeof am, string> = {
   getVerified: 'Get verified',
   currentLevel: 'Current verification level',
 
+  ladderTitle: 'Verification levels',
+  ladderCurrentTag: 'You are here',
+  ladderNoneDesc: 'Your account is created; your identity is not verified yet.',
+  ladderBasicDesc: 'Your phone or Telegram account is confirmed.',
+  ladderIdDesc: 'Your ID was reviewed and approved by our staff.',
+  ladderFaydaDesc:
+    'Your identity is verified with the national Fayda ID (eSignet).',
+  ladderProDesc: 'Your professional certification is submitted and approved.',
+  ladderGuarantorDesc: 'Guarantors add extra trust at any level.',
+
   timelineTitle: 'Verification history',
   timelineEmpty: 'You have not submitted a verification request yet.',
   statusPending: 'Pending review',
@@ -103,6 +123,7 @@ const en: Record<keyof typeof am, string> = {
   choosePhoto: 'Choose photo',
   changePhoto: 'Change photo',
   photoSelected: 'Photo selected',
+  tapToAddPhoto: 'Tap to add a photo',
   fileTypeError: 'Please choose an image file.',
   fileTooLarge: 'The photo is too large (up to 10MB).',
   processError: 'Could not process the photo. Please try another one.',

@@ -488,6 +488,90 @@ export const APPLICATION_STATUS_DEF: Record<
   },
 };
 
+// ---------------------------------------------------------------------------
+// Timing chip (shared JobCard) — DERIVED from jobs.date_needed. The jobs
+// table has no urgency column and none is added (v1-adoption plan T3):
+// this is presentation only.
+// ---------------------------------------------------------------------------
+export type TimingChip = 'today' | 'this_week' | 'flexible';
+
+export const TIMING_CHIP_KEY: Record<TimingChip, MessageKey> = {
+  today: 'jobs.timingToday',
+  this_week: 'jobs.timingThisWeek',
+  flexible: 'jobs.timingFlexible',
+};
+
+/** `iso` (YYYY-MM-DD) plus `days`, as local YYYY-MM-DD. Anchored at midday so
+ *  a DST shift can never move the result across a date boundary. */
+export function addDaysIso(iso: string, days: number): string {
+  const date = new Date(`${iso}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return localTodayIso(date);
+}
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Derive the JobCard timing chip from date_needed:
+ *   null/'' → 'flexible', today → 'today', tomorrow…today+7 → 'this_week'.
+ * Past dates, dates beyond a week, and malformed values get NO chip (null) —
+ * the page's formatted date says it better than a wrong label would.
+ * YYYY-MM-DD strings compare correctly as text (same trick as validateSchedule).
+ */
+export function deriveTiming(
+  dateNeeded: string | null | undefined,
+  todayIso: string,
+): TimingChip | null {
+  if (dateNeeded == null || dateNeeded === '') return 'flexible';
+  if (!ISO_DATE_RE.test(dateNeeded)) return null;
+  if (dateNeeded < todayIso) return null;
+  if (dateNeeded === todayIso) return 'today';
+  return dateNeeded <= addDaysIso(todayIso, 7) ? 'this_week' : null;
+}
+
+// ---------------------------------------------------------------------------
+// T7 — urgency chips on the wizard's date step. A chip press PRESETS the
+// existing dateNeeded field (the jobs table has no urgency column and none is
+// added): today → today's date, this_week → the last day of the 7-day window
+// (a starting point the picker can refine), flexible → '' (the payload then
+// omits p_date_needed and the SQL default null applies). The ACTIVE chip is
+// derived back from the field via deriveTiming, so the wizard chip and the
+// JobCard timing chip can never disagree.
+// ---------------------------------------------------------------------------
+export const URGENCY_PRESETS: readonly TimingChip[] = [
+  'today',
+  'this_week',
+  'flexible',
+];
+
+export function urgencyPresetDate(
+  preset: TimingChip,
+  todayIso: string,
+): string {
+  switch (preset) {
+    case 'today':
+      return todayIso;
+    case 'this_week':
+      return addDaysIso(todayIso, 7);
+    case 'flexible':
+      return '';
+  }
+}
+
+/**
+ * T8 — `?category=<slug>` deep link into the wizard. Seed only when the slug
+ * names one of the LOADED ACTIVE categories (fetchActiveCategories filters
+ * active=true); anything else — unknown, inactive, empty — starts the wizard
+ * normally at step 1. Exact match only: slugs are lowercase identifiers.
+ */
+export function resolveCategoryPrefill(
+  slugParam: string | null,
+  categories: readonly { slug: string }[],
+): string | null {
+  if (!slugParam) return null;
+  return categories.some((c) => c.slug === slugParam) ? slugParam : null;
+}
+
 /** date_needed (YYYY-MM-DD) for display; locale-aware, safe fallback to raw. */
 export function formatDateNeeded(
   iso: string | null,

@@ -12,6 +12,7 @@ import { Button } from '../../components/Button';
 import { RatingStars } from '../../components/RatingStars';
 import { Spinner } from '../../components/Spinner';
 import { TextArea } from '../../components/TextArea';
+import { useToast } from '../../components/Toast';
 import { fetchBookingReviews, submitReview } from './api';
 import { useAsync } from './useAsync';
 import {
@@ -103,6 +104,7 @@ export function ReviewSection({
   counterpartName,
 }: ReviewSectionProps) {
   const { locale, t } = useLocale();
+  const toast = useToast();
   const reviewsQ = useAsync(
     () => fetchBookingReviews(bookingId),
     `booking-reviews:${bookingId}`,
@@ -122,15 +124,18 @@ export function ReviewSection({
     setSubmitErrorKey(null);
     submitReview(buildSubmitReviewArgs(bookingId, rating, comment))
       .then(() => {
+        // 'Your review was recorded…' — sets the double-blind expectation.
+        toast(t('reviews.submitted'));
         setJustSubmitted(true);
         reviewsQ.reload();
       })
       .catch((e: unknown) => {
         const key = rpcErrorKey(getErrorMessage(e));
         // rpcErrorKey's fallback is a bookings key; keep the reviews context.
-        setSubmitErrorKey(
-          key === 'bookings.errorGeneric' ? 'reviews.submitFailed' : key,
-        );
+        const contextKey =
+          key === 'bookings.errorGeneric' ? 'reviews.submitFailed' : key;
+        setSubmitErrorKey(contextKey);
+        toast(t(contextKey), 'error');
       })
       .finally(() => setBusy(false));
   };
@@ -198,6 +203,7 @@ export function ReviewSection({
                   </div>
                   <TextArea
                     label={t('reviews.commentLabel')}
+                    placeholder={t('reviews.commentPlaceholder')}
                     rows={3}
                     value={comment}
                     onChange={(event) => setComment(event.target.value)}

@@ -4,7 +4,7 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 const VARIANT_CLASSES: Record<Variant, string> = {
   primary:
-    'bg-primary text-white active:bg-primary-600 disabled:bg-primary-200',
+    'bg-primary text-white shadow-button active:bg-primary-600 disabled:bg-primary-200 disabled:shadow-none',
   secondary:
     'border border-primary bg-white text-primary-600 active:bg-primary-50 disabled:opacity-50',
   ghost: 'text-ink-light active:bg-ink/5 disabled:opacity-50',
@@ -28,7 +28,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         type={type}
-        className={`inline-flex min-h-touch items-center justify-center gap-2 rounded-xl px-5 text-base font-semibold transition-colors ${VARIANT_CLASSES[variant]} ${full ? 'w-full' : ''} ${className}`}
+        className={`inline-flex min-h-touch items-center justify-center gap-2 rounded-xl px-5 text-base font-semibold transition motion-safe:active:scale-95 ${VARIANT_CLASSES[variant]} ${full ? 'w-full' : ''} ${className}`}
         {...rest}
       />
     );

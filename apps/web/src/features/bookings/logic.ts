@@ -119,6 +119,46 @@ export const BOOKING_ACTION_LABEL: Record<BookingAction, MessageKey> = {
   dispute: 'bookings.actionDispute',
 };
 
+/** Success-toast copy per action (shown AFTER the RPC succeeded, never before). */
+export const BOOKING_ACTION_TOAST: Record<BookingAction, MessageKey> = {
+  start: 'bookings.toastStarted',
+  worker_done: 'bookings.toastWorkerDone',
+  customer_confirm: 'bookings.toastCustomerConfirmed',
+  cancel: 'bookings.toastCancelled',
+  dispute: 'bookings.toastDisputed',
+};
+
+// ---------------------------------------------------------------------------
+// Status stepper (v1-adoption T4) — PRESENTATION of the happy path only.
+// The stepper never offers a write; all transitions stay in the RPC handlers.
+// cancelled/disputed are off-path: bookingStageIndex returns null and the
+// page keeps rendering only the StatusBadge for them.
+// ---------------------------------------------------------------------------
+export const BOOKING_STAGES = [
+  'confirmed',
+  'started',
+  'worker_done',
+  'customer_confirmed',
+] as const;
+
+export type BookingStage = (typeof BOOKING_STAGES)[number];
+
+export const BOOKING_STAGE_LABEL: Record<BookingStage, MessageKey> = {
+  confirmed: 'bookings.stageConfirmed',
+  started: 'bookings.stageStarted',
+  worker_done: 'bookings.stageWorkerDone',
+  customer_confirmed: 'bookings.stageCustomerConfirmed',
+};
+
+/**
+ * Index of `status` on the happy path (0-based), or null when the booking is
+ * off it (cancelled/disputed) — the caller must then not render a stepper.
+ */
+export function bookingStageIndex(status: BookingStatus): number | null {
+  const index = (BOOKING_STAGES as readonly string[]).indexOf(status);
+  return index === -1 ? null : index;
+}
+
 /** Per-role explanation of where the booking stands and what happens next. */
 export function statusHintKey(
   role: BookingRole,

@@ -8,6 +8,7 @@ const am = {
   ratingLabel: 'ደረጃ ይምረጡ',
   starAria: '{n} ኮከብ',
   commentLabel: 'አስተያየት (አማራጭ)',
+  commentPlaceholder: 'ሌሎችን የሚረዳ ዝርዝር ያካፍሉ…',
   doubleBlindExplain:
     'ግምገማዎች ሁለታችሁም እስክታስገቡ ወይም 48 ሰዓት እስኪሞላ ድረስ ተደብቀው ይቆያሉ።',
   yourReview: 'የእርስዎ ግምገማ',
@@ -32,6 +33,7 @@ const en: Record<keyof typeof am, string> = {
   ratingLabel: 'Choose a rating',
   starAria: '{n} stars',
   commentLabel: 'Comment (optional)',
+  commentPlaceholder: 'Share details to help others…',
   doubleBlindExplain:
     'Reviews stay hidden until both of you submit, or until 48 hours pass.',
   yourReview: 'Your review',

@@ -11,8 +11,12 @@ import { describe, expect, it } from 'vitest';
 import {
   AMOUNT_MAX_BIRR,
   BOOKING_ACTION_LABEL,
+  BOOKING_ACTION_TOAST,
+  BOOKING_STAGE_LABEL,
+  BOOKING_STAGES,
   appendMessage,
   bookingRole,
+  bookingStageIndex,
   bothConfirmedPayment,
   buildCancelArgs,
   buildDisputeArgs,
@@ -47,6 +51,7 @@ import {
   validateReviewForm,
   viewerHasConfirmedPayment,
 } from '../logic';
+import { lookupMessage } from '../../../i18n';
 import type { BookingStatus } from '../../../components/StatusBadge';
 
 const ALL_STATUSES: readonly BookingStatus[] = [
@@ -95,6 +100,56 @@ describe('primaryActionFor', () => {
         expected[status].customer,
       );
       expect(primaryActionFor('worker', status)).toBe(expected[status].worker);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Status stepper (T4) — the index derivation drives which circles render as
+// done/active. Exhaustive over the enum: an off-path status leaking a number
+// here would draw a progress stepper on a cancelled/disputed booking.
+// ---------------------------------------------------------------------------
+
+describe('bookingStageIndex (T4 stepper)', () => {
+  it('stages are the happy path in RPC transition order', () => {
+    expect(BOOKING_STAGES).toEqual([
+      'confirmed',
+      'started',
+      'worker_done',
+      'customer_confirmed',
+    ]);
+  });
+
+  it('maps every status: happy path 0..3, off-path null', () => {
+    const expected: Record<BookingStatus, number | null> = {
+      confirmed: 0,
+      started: 1,
+      worker_done: 2,
+      customer_confirmed: 3,
+      disputed: null,
+      cancelled: null,
+    };
+    for (const status of ALL_STATUSES) {
+      expect(bookingStageIndex(status)).toBe(expected[status]);
+    }
+  });
+
+  it('every stage label and action toast resolves in BOTH locales', () => {
+    const keys = [
+      ...Object.values(BOOKING_STAGE_LABEL),
+      ...Object.values(BOOKING_ACTION_TOAST),
+    ];
+    // One entry per stage and per action — a missing map row would silently
+    // drop a circle label or a success toast.
+    expect(Object.keys(BOOKING_STAGE_LABEL)).toEqual([...BOOKING_STAGES]);
+    expect(Object.keys(BOOKING_ACTION_TOAST).sort()).toEqual(
+      Object.keys(BOOKING_ACTION_LABEL).sort(),
+    );
+    for (const key of keys) {
+      for (const locale of ['am', 'en'] as const) {
+        const message = lookupMessage(locale, key);
+        expect(message, `${key} (${locale})`).toBeTruthy();
+      }
     }
   });
 });

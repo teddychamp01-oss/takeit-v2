@@ -18,6 +18,11 @@ const am = {
   becomeWorkerHint: 'አገልግሎት መሸጥ ይጀምሩ — መገለጫዎን ይሙሉ።',
   adminLink: 'የአስተዳደር ገጽ',
 
+  activationVerification: 'ማረጋገጫ',
+  activationManageCta: 'ያስተዳድሩ',
+  completionLabel: 'የመገለጫ ሙሉነት',
+  completionCta: 'መገለጫዎን ያሟሉ',
+
   savedWorkersTitle: 'የተቀመጡ ባለሙያዎች',
   savedWorkersEmpty: 'እስካሁን ያስቀመጡት ባለሙያ የለም።',
   savedShowing: 'ከ{total} የተቀመጡ ባለሙያዎች {shown} እየታዩ ነው',
@@ -100,6 +105,11 @@ const en: Record<keyof typeof am, string> = {
   becomeWorker: 'Become a worker',
   becomeWorkerHint: 'Start selling your services — fill in your profile.',
   adminLink: 'Admin panel',
+
+  activationVerification: 'Verification',
+  activationManageCta: 'Manage',
+  completionLabel: 'Profile completion',
+  completionCta: 'Complete your profile',
 
   savedWorkersTitle: 'Saved workers',
   savedWorkersEmpty: 'You have not saved any workers yet.',

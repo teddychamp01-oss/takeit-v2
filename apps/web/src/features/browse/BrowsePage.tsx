@@ -19,13 +19,14 @@ import {
   sanitizeSearchTerm,
   workerCardFromListRow,
 } from './logic';
+import { categoryNamesFor } from '../home/logic';
 import { useAsync } from './useAsync';
 import { CategoryGrid, ErrorCard, SectionTitle, SignInCard } from './ui';
 
 const DEBOUNCE_MS = 300;
 
 export default function BrowsePage() {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
   const { user, loading: sessionLoading } = useSession();
 
   const [input, setInput] = useState('');
@@ -114,7 +115,14 @@ export default function BrowsePage() {
                 <ul className="space-y-2">
                   {workers.data.rows.map((row) => (
                     <li key={row.user_id}>
-                      <WorkerCard {...workerCardFromListRow(row)} />
+                      <WorkerCard
+                        {...workerCardFromListRow(row)}
+                        categories={categoryNamesFor(
+                          row.categories,
+                          categories.data ?? [],
+                          locale,
+                        )}
+                      />
                     </li>
                   ))}
                 </ul>

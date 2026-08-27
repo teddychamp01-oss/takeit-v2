@@ -6,3 +6,19 @@ import { cleanup } from '@testing-library/react';
 afterEach(() => {
   cleanup();
 });
+
+// jsdom ships no matchMedia; stub it so components reading media queries render under vitest.
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: (query: string): MediaQueryList =>
+    ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }) as unknown as MediaQueryList,
+});

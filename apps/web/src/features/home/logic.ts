@@ -1,6 +1,8 @@
 // Pure logic for the home screen — covered by vitest.
 
-import type { MessageKey } from '../../i18n';
+import type { Locale, MessageKey } from '../../i18n';
+import { categoryName } from '../browse/logic';
+import type { BadgeLevel, Category, WorkerListRow } from '../browse/types';
 
 export type GreetingSlot = 'morning' | 'afternoon' | 'evening';
 
@@ -22,3 +24,68 @@ export const GREETING_KEY: Record<GreetingSlot, MessageKey> = {
   afternoon: 'home.greetingAfternoon',
   evening: 'home.greetingEvening',
 };
+
+// ---------------------------------------------------------------------------
+// 'Available Now' rail ranking (v1-adoption plan T2): curated badge tier
+// first, then rating, then a STABLE user_id tiebreak — geography (or anything
+// else) is never decided by the alphabet (repo law 1). NOT a featured flag —
+// badge_level is the measured curated tier.
+// ---------------------------------------------------------------------------
+
+const BADGE_RANK: Record<BadgeLevel, number> = {
+  new: 0,
+  rising: 1,
+  trusted: 2,
+  pro: 3,
+  top: 4,
+};
+
+type RankableWorker = Pick<
+  WorkerListRow,
+  'user_id' | 'badge_level' | 'rating_avg'
+>;
+
+/** Coalesce every nullable/garbage input — a NaN comparator corrupts a sort. */
+function safeRating(value: number | null | undefined): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Sort for the home rail: badge_level desc, rating_avg desc, user_id asc.
+ * Pure — returns a new array, never mutates the input.
+ */
+export function rankAvailableNow<T extends RankableWorker>(
+  rows: readonly T[],
+): T[] {
+  return [...rows].sort((a, b) => {
+    const badge =
+      (BADGE_RANK[b.badge_level] ?? -1) - (BADGE_RANK[a.badge_level] ?? -1);
+    if (badge !== 0) return badge;
+    const rating = safeRating(b.rating_avg) - safeRating(a.rating_avg);
+    if (rating !== 0) return rating;
+    // Stable id tiebreak — plain code-unit compare, NOT locale-dependent.
+    return a.user_id < b.user_id ? -1 : a.user_id > b.user_id ? 1 : 0;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Category slug -> localized display name (for the WorkerCard one-liner).
+// Pages resolve slugs before passing display strings into cards — the same
+// convention JobCard documents.
+// ---------------------------------------------------------------------------
+
+/**
+ * Map category slugs to localized names via the loaded catalog. An unknown
+ * slug falls back to the raw slug — bad data must never blank or crash a card.
+ */
+export function categoryNamesFor(
+  slugs: readonly string[],
+  categories: readonly Pick<Category, 'slug' | 'name_am' | 'name_en'>[],
+  locale: Locale,
+): string[] {
+  return slugs.map((slug) => {
+    const found = categories.find((category) => category.slug === slug);
+    return found ? categoryName(found, locale) : slug;
+  });
+}

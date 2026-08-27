@@ -260,6 +260,10 @@ export default function OnboardingPage() {
                 );
               })}
             </div>
+            {/* Dual-role reassurance (C4): the choice is not a commitment. */}
+            <p className="mt-2 text-sm text-ink-faint">
+              {t('auth.roleSwitchHint')}
+            </p>
             {role !== 'customer' && (
               <p className="mt-2 text-sm text-ink-faint">
                 {t('auth.workerHint')}

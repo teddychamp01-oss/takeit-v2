@@ -19,6 +19,7 @@ import {
   fetchNotifications,
   fetchOwnProfile,
   fetchOwnRoles,
+  fetchOwnWorkerProfile,
   fetchSavedWorkers,
   markAllNotificationsRead,
   markNotificationRead,
@@ -27,7 +28,7 @@ import {
 } from './api';
 import { notificationLabelKey, notificationRoute } from './logic';
 import { useAsync } from './useAsync';
-import { ErrorCard, RowLink, SectionTitle } from './ui';
+import { ErrorCard, RowLink, SectionTitle, WorkerActivationCard } from './ui';
 import type { NotificationRow, SavedWorkerRow } from './types';
 
 function savedWorkerCardProps(row: SavedWorkerRow) {
@@ -110,6 +111,14 @@ export default function MePage() {
     () => fetchNotifications(userId),
     `me:notifications:${userId}`,
     !!userId,
+  );
+  // Worker activation card (T9) — only fetched once the profile says the
+  // user is a worker; customers never pay for this query.
+  const isWorker = profile.data?.is_worker === true;
+  const workerProfile = useAsync(
+    () => fetchOwnWorkerProfile(userId),
+    `me:worker:${userId}`,
+    !!userId && isWorker,
   );
 
   const [signingOut, setSigningOut] = useState(false);
@@ -229,6 +238,19 @@ export default function MePage() {
             </dl>
           </section>
         )}
+
+        {/* ---- Worker activation (verification + completion nudge) ---- */}
+        {profile.data?.is_worker &&
+          (workerProfile.loading ? (
+            <SpinnerBlock />
+          ) : workerProfile.failed ? (
+            <ErrorCard onRetry={workerProfile.reload} />
+          ) : workerProfile.data ? (
+            <WorkerActivationCard
+              worker={workerProfile.data}
+              avatarUrl={profile.data.avatar_url}
+            />
+          ) : null)}
 
         {/* ---- Navigation rows ---- */}
         {profile.data && (

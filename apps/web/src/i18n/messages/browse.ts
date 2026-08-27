@@ -34,6 +34,10 @@ const am = {
   signInToView: 'የባለሙያውን ሙሉ መገለጫ ለማየት ይግቡ።',
   aboutSection: 'ስለ ባለሙያው',
   skillsSection: 'ችሎታዎች',
+  // Stat trio on the worker detail page (rating label reuses common.rating).
+  statsSection: 'ቁልፍ አሃዞች',
+  statJobsCompleted: 'የተጠናቀቁ ሥራዎች',
+  statVerification: 'ማረጋገጫ',
   jobsCompletedLong: '{count} የተጠናቀቁ ሥራዎች',
   guarantorsCount: '{count} ዋሶች አሉት',
   travelRadius: 'እስከ {km} ኪ.ሜ ድረስ ይጓዛል',
@@ -47,6 +51,9 @@ const am = {
   requestBooking: 'ቀጠሮ ይያዙ',
   saveWorker: 'ባለሙያውን አስቀምጥ',
   savedWorker: 'ተቀምጧል',
+  // "starting at" price on compact worker cards — the "+" reads the same in
+  // both scripts, so the two values match by design.
+  priceFromShort: '{price}+',
 } as const;
 
 const en: Record<keyof typeof am, string> = {
@@ -82,6 +89,9 @@ const en: Record<keyof typeof am, string> = {
   signInToView: 'Sign in to see this worker’s full profile.',
   aboutSection: 'About',
   skillsSection: 'Skills',
+  statsSection: 'Key stats',
+  statJobsCompleted: 'Jobs completed',
+  statVerification: 'Verification',
   jobsCompletedLong: '{count} jobs completed',
   guarantorsCount: '{count} guarantors',
   travelRadius: 'Travels up to {km} km',
@@ -95,6 +105,7 @@ const en: Record<keyof typeof am, string> = {
   requestBooking: 'Request booking',
   saveWorker: 'Save worker',
   savedWorker: 'Saved',
+  priceFromShort: '{price}+',
 };
 
 export const browse = { am, en };

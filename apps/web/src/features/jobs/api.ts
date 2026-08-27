@@ -226,6 +226,49 @@ export interface MyApplicationRow {
   created_at: string;
 }
 
+export interface OwnApplicationJob {
+  id: string;
+  title: string;
+  status: JobStatus;
+}
+
+export interface OwnApplicationRow {
+  id: string;
+  job_id: string;
+  status: ApplicationStatus;
+  created_at: string;
+  /**
+   * To-one embed via applications_job_id_fkey. NULL when the jobs_select RLS
+   * policy hides the job from this worker (e.g. it matched someone else and
+   * this worker has no booking on it) — the row still renders, degraded,
+   * rather than silently disappearing.
+   */
+  job: OwnApplicationJob | OwnApplicationJob[] | null;
+}
+
+/**
+ * The worker's own applications across ALL jobs (v1-adoption plan T13) —
+ * a plain SELECT; applications_select RLS already permits own rows
+ * (worker_id = auth.uid()), so no new policy or RPC is involved.
+ */
+export async function fetchOwnApplications(
+  userId: string,
+): Promise<ListPage<OwnApplicationRow>> {
+  const { data, error, count } = await supabase
+    .from('applications')
+    .select(
+      'id, job_id, status, created_at, job:jobs!applications_job_id_fkey(id, title, status)',
+      { count: 'exact' },
+    )
+    .eq('worker_id', userId)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: true }) // stable id tiebreak, never geography
+    .limit(APPLICATIONS_LIMIT);
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as OwnApplicationRow[];
+  return { rows, total: count ?? rows.length };
+}
+
 export async function fetchMyApplication(
   jobId: string,
   userId: string,

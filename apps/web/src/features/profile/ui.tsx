@@ -6,8 +6,14 @@ import { Link } from 'react-router-dom';
 import { useT } from '../../lib/i18n';
 import { Button } from '../../components/Button';
 import { Badge, type BadgeTone } from '../../components/Badge';
+import { VerifiedBadge } from '../../components/VerifiedBadge';
+import { computeProfileCompletion } from './logic';
 import type { MessageKey } from '../../i18n';
-import type { GuarantorStatus, VerificationStatus } from './types';
+import type {
+  GuarantorStatus,
+  VerificationStatus,
+  WorkerProfileRow,
+} from './types';
 
 /** Inline query-failure card: localized message + retry. Never raw errors. */
 export function ErrorCard({ onRetry }: { onRetry: () => void }) {
@@ -115,6 +121,86 @@ export function GuarantorStatusBadge({ status }: { status: GuarantorStatus }) {
   const t = useT();
   const def = GUARANTOR_STATUS_DEF[status];
   return <Badge tone={def.tone}>{t(def.key)}</Badge>;
+}
+
+/**
+ * Worker activation nudge (T9): current verification level + CTA to
+ * /me/verification, plus a profile-completion meter COMPUTED from real
+ * fields via computeProfileCompletion — NEVER a hardcoded % (Gate 3).
+ * Mounted on MePage for worker-role users (and on MyJobsPage's feed tab).
+ */
+export function WorkerActivationCard({
+  worker,
+  avatarUrl,
+}: {
+  worker: WorkerProfileRow;
+  /** From the profiles row — avatars live there, not on worker_profiles. */
+  avatarUrl: string | null;
+}) {
+  const t = useT();
+  const completion = computeProfileCompletion({
+    bio: worker.bio,
+    categories: worker.categories,
+    price_min_cents: worker.price_min_cents,
+    price_max_cents: worker.price_max_cents,
+    neighborhood: worker.neighborhood,
+    avatar_url: avatarUrl,
+    availability: worker.availability,
+  });
+  const level = worker.verification_level;
+  const needsVerification = level === 'none' || level === 'basic';
+  return (
+    <section className="rounded-2xl bg-white p-4 shadow-card">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold uppercase tracking-wide text-ink-faint">
+            {t('profile.activationVerification')}
+          </p>
+          <div className="mt-1">
+            {level === 'none' ? (
+              <span className="text-sm font-semibold text-ink-light">
+                {t('common.verificationNone')}
+              </span>
+            ) : (
+              <VerifiedBadge level={level} />
+            )}
+          </div>
+        </div>
+        <Link
+          to="/me/verification"
+          className="inline-flex min-h-touch shrink-0 items-center rounded-xl bg-primary px-4 text-sm font-bold text-white shadow-button transition active:bg-primary-600 motion-safe:active:scale-95"
+        >
+          {needsVerification
+            ? t('verification.getVerified')
+            : t('profile.activationManageCta')}
+        </Link>
+      </div>
+      {completion.percent < 100 && (
+        <div className="mt-3 border-t border-ink/10 pt-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-ink-faint">{t('profile.completionLabel')}</span>
+            <span className="font-bold text-ink">{completion.percent}%</span>
+          </div>
+          <div
+            className="mt-2 h-2 overflow-hidden rounded-full bg-ink/5"
+            role="img"
+            aria-label={`${t('profile.completionLabel')}: ${completion.percent}%`}
+          >
+            <div
+              className="brand-gradient h-full rounded-full"
+              style={{ width: `${completion.percent}%` }}
+            />
+          </div>
+          <Link
+            to="/me/worker"
+            className="mt-1 inline-flex min-h-touch items-center text-xs font-semibold text-primary-600"
+          >
+            {t('profile.completionCta')}
+          </Link>
+        </div>
+      )}
+    </section>
+  );
 }
 
 /** Selectable chip (day-of-week, category) — 44px target, aria-pressed. */

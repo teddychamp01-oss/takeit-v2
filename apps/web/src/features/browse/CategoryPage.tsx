@@ -9,7 +9,7 @@
 // surfaced, never silent.
 
 import { useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useLocale } from '../../lib/i18n';
 import { useSession } from '../../hooks/useSession';
 import { PageHeader } from '../../components/PageHeader';
@@ -116,6 +116,21 @@ export default function CategoryPage() {
 
         {category.data && category.data.min_verification_level !== 'none' && (
           <Badge tone="success">{t('browse.requiresVerification')}</Badge>
+        )}
+
+        {/* T8 deep link: seeds PostJobPage via ?category= and skips its
+            category step. Only for an ACTIVE category — the wizard's prefill
+            guard (resolveCategoryPrefill) ignores inactive slugs anyway. */}
+        {category.data && category.data.active && (
+          <Link
+            to={`/post?category=${encodeURIComponent(category.data.slug)}`}
+            className="block rounded-2xl bg-primary p-4 text-white shadow-button transition-transform motion-safe:active:scale-95"
+          >
+            <span className="block font-bold">{t('jobs.postLikeThis')}</span>
+            <span className="mt-0.5 block text-xs opacity-90">
+              {t('jobs.postLikeThisBody')}
+            </span>
+          </Link>
         )}
 
         {/* Service packages — anon-readable catalog, visible to everyone */}

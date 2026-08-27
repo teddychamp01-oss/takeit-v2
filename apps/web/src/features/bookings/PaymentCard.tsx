@@ -14,6 +14,7 @@ import { Badge } from '../../components/Badge';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import { Spinner } from '../../components/Spinner';
+import { useToast } from '../../components/Toast';
 import { fetchOffappPayment, logOffappPayment } from './api';
 import { useAsync } from './useAsync';
 import {
@@ -39,6 +40,7 @@ export function PaymentCard({
   agreedPriceCents,
 }: PaymentCardProps) {
   const t = useT();
+  const toast = useToast();
   const payment = useAsync(
     () => fetchOffappPayment(bookingId),
     `offapp-payment:${bookingId}`,
@@ -47,12 +49,19 @@ export function PaymentCard({
   const [busy, setBusy] = useState(false);
   const [errorKey, setErrorKey] = useState<MessageKey | null>(null);
 
-  const callRpc = (amountCents: number | null) => {
+  const callRpc = (amountCents: number | null, successKey: MessageKey) => {
     setBusy(true);
     setErrorKey(null);
     logOffappPayment(buildLogPaymentArgs(bookingId, amountCents))
-      .then(() => payment.reload())
-      .catch((e: unknown) => setErrorKey(rpcErrorKey(getErrorMessage(e))))
+      .then(() => {
+        toast(t(successKey));
+        return payment.reload();
+      })
+      .catch((e: unknown) => {
+        const key = rpcErrorKey(getErrorMessage(e));
+        setErrorKey(key);
+        toast(t(key), 'error');
+      })
       .finally(() => setBusy(false));
   };
 
@@ -63,12 +72,12 @@ export function PaymentCard({
       return;
     }
     // null = the server logs the booking's agreed price (RPC coalesce).
-    callRpc(parsed.cents);
+    callRpc(parsed.cents, 'bookings.toastPaymentLogged');
   };
 
   // Confirming an EXISTING log sends null so the server never sees a
   // conflicting amount (TAKEIT_PAYMENT_AMOUNT_MISMATCH guard).
-  const handleConfirm = () => callRpc(null);
+  const handleConfirm = () => callRpc(null, 'bookings.toastPaymentConfirmed');
 
   return (
     <section className="rounded-2xl bg-white p-4 shadow-sm">

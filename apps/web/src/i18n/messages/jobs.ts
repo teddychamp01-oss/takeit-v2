@@ -20,10 +20,11 @@ const am = {
   categoryNeedsVerification: 'የተረጋገጡ ባለሙያዎች ብቻ',
 
   titleLabel: 'ርዕስ',
-  titlePlaceholder: 'ምሳሌ፦ ባለ 2 መኝታ ቤት ጽዳት',
+  titlePlaceholder: 'ምሳሌ፦ ባለ 2 መኝታ ቤት ጥልቅ ጽዳት',
   titleHint: 'ከ5 እስከ 120 ፊደላት',
   descriptionLabel: 'መግለጫ',
-  descriptionPlaceholder: 'ሥራውን በዝርዝር ይግለጹ…',
+  descriptionPlaceholder: 'ሥራውን፣ የሚያስፈልጉ ቁሳቁሶችን እና የመግቢያ ሁኔታን ይግለጹ…',
+  descriptionHint: 'ምሳሌ፦ «ቁሳቁስ በእኛ በኩል ይቀርባል።»',
   phoneSoftWarn:
     'ጽሑፉ ስልክ ቁጥር የያዘ ይመስላል። ለደህንነትዎ ሲባል ማስያዣ ከመረጋገጡ በፊት ቁጥር አይለዋወጡ።',
 
@@ -53,6 +54,8 @@ const am = {
     'ቁጥሩ ተሸፍኖ ይቀመጣል፤ ማስያዣ እስኪረጋገጥ ድረስ ለማንም አይታይም።',
 
   dateLabel: 'የሚፈለግበት ቀን',
+  // T7 urgency chips (labels reuse the timing* keys below)
+  urgencyLabel: 'መቼ ያስፈልግዎታል?',
   timeWindowLabel: 'የሰዓት ክልል',
   timeWindowPlaceholder: 'ምሳሌ፦ ጠዋት 8:00–12:00',
   windowMorning: 'ጠዋት 08:00–12:00',
@@ -75,6 +78,7 @@ const am = {
   reviewNotSet: 'አልተገለጸም',
   postSubmit: 'ሥራውን ለጥፍ',
   posting: 'በመለጠፍ ላይ…',
+  postedToast: 'ሥራዎ ተለጥፏል! ባለሙያዎች አሁን ማመልከት ይችላሉ።',
 
   // ---- Client-side validation ---------------------------------------------
   errorCategoryRequired: 'እባክዎ ምድብ ይምረጡ',
@@ -113,15 +117,29 @@ const am = {
   // ---- My jobs -------------------------------------------------------------
   tabMine: 'የለጠፍኳቸው',
   tabFeed: 'ክፍት ሥራዎች',
+  tabApplications: 'ማመልከቻዎቼ',
   feedHint: 'በምድቦችዎ እና በሥራ ክልልዎ የተዛመዱ ክፍት ሥራዎች',
   emptyMineTitle: 'እስካሁን ሥራ አልለጠፉም',
   emptyMineBody: 'የመጀመሪያ ሥራዎን ይለጥፉ — የተረጋገጡ ባለሙያዎች ያመለክታሉ።',
   emptyFeedTitle: 'ለእርስዎ የሚስማማ ክፍት ሥራ የለም',
   emptyFeedBody: 'በባለሙያ መገለጫዎ ውስጥ ምድቦችዎን እና የሥራ ክልልዎን ያዘምኑ።',
   emptyFeedCta: 'መገለጫ አርትዕ',
+  // T13 worker "my applications" aggregate list
+  emptyApplicationsTitle: 'ገና ምንም አላመለከቱም',
+  emptyApplicationsBody:
+    'ክፍት ሥራዎችን ይመልከቱና ያመልክቱ — የማመልከቻዎችዎ ሁኔታ እዚህ ይታያል።',
+  emptyApplicationsCta: 'ክፍት ሥራዎችን ይመልከቱ',
+  applicationJobUnavailable: 'ሥራው ከእንግዲህ አይገኝም',
   applicationsCount: '{count} ማመልከቻ',
   workersCount: '{count} ባለሙያ',
   truncatedNote: 'ከ{total} ውስጥ የመጀመሪያዎቹ {shown} እየታዩ ነው',
+
+  // ---- Shared JobCard (timing chip derived from date_needed; no urgency
+  // column exists — presentation only) --------------------------------------
+  timingToday: 'ዛሬ',
+  timingThisWeek: 'በዚህ ሳምንት',
+  timingFlexible: 'ተለዋዋጭ',
+  postedByName: 'በ{name} የተለጠፈ',
 
   // ---- Job detail ----------------------------------------------------------
   notFoundTitle: 'ሥራው አልተገኘም',
@@ -143,6 +161,7 @@ const am = {
   agreedPriceHint: 'ማስያዣው በዚህ ዋጋ ይፈጠራል። ገንዘቡ በ Take It እጅ አይያዝም።',
   confirmAccept: 'አረጋግጥና ያዝ',
   accepting: 'በመያዝ ላይ…',
+  acceptedToast: 'ማመልከቻው ተቀባይነት አግኝቷል — ማስያዣ ተፈጥሯል።',
 
   applicationStatusPending: 'በመጠባበቅ ላይ',
   applicationStatusAccepted: 'ተቀባይነት አግኝቷል',
@@ -159,6 +178,10 @@ const am = {
   appliedBody: 'ደንበኛው ማመልከቻዎን ሲቀበል ማሳወቂያ ይደርስዎታል።',
   myApplication: 'የእኔ ማመልከቻ',
   jobClosedForApplications: 'ይህ ሥራ ለማመልከቻ ዝግ ነው።',
+
+  // ---- T8 deep link: "post a job like this" (CategoryPage → /post?category=) -
+  postLikeThis: 'በዚህ ምድብ ሥራ ይለጥፉ',
+  postLikeThisBody: 'በደቂቃዎች ውስጥ ከባለሙያዎች ምላሽ ያግኙ።',
 } as const;
 
 const en: Record<keyof typeof am, string> = {
@@ -177,10 +200,11 @@ const en: Record<keyof typeof am, string> = {
   categoryNeedsVerification: 'Verified workers only',
 
   titleLabel: 'Title',
-  titlePlaceholder: 'e.g. Clean a 2-bedroom apartment',
+  titlePlaceholder: 'e.g. Deep clean a 2-bedroom apartment',
   titleHint: '5–120 characters',
   descriptionLabel: 'Description',
-  descriptionPlaceholder: 'Describe the work in detail…',
+  descriptionPlaceholder: 'Describe the work, supplies, and access…',
+  descriptionHint: 'e.g. “Supplies provided.”',
   phoneSoftWarn:
     'This text looks like it contains a phone number. For your safety, do not share numbers before a booking is confirmed.',
 
@@ -208,6 +232,7 @@ const en: Record<keyof typeof am, string> = {
     'Stored masked; visible to no one until a booking is confirmed.',
 
   dateLabel: 'Date needed',
+  urgencyLabel: 'When do you need it?',
   timeWindowLabel: 'Time window',
   timeWindowPlaceholder: 'e.g. Morning 8:00–12:00',
   windowMorning: 'Morning 08:00–12:00',
@@ -230,6 +255,7 @@ const en: Record<keyof typeof am, string> = {
   reviewNotSet: 'Not set',
   postSubmit: 'Post job',
   posting: 'Posting…',
+  postedToast: 'Job posted! Workers can now apply.',
 
   errorCategoryRequired: 'Please choose a category',
   errorTitleLength: 'The title must be 5–120 characters',
@@ -267,6 +293,7 @@ const en: Record<keyof typeof am, string> = {
 
   tabMine: 'Posted by me',
   tabFeed: 'Open jobs',
+  tabApplications: 'My applications',
   feedHint: 'Open jobs matched to your categories and travel radius',
   emptyMineTitle: 'No jobs posted yet',
   emptyMineBody: 'Post your first job — verified workers will apply.',
@@ -274,9 +301,19 @@ const en: Record<keyof typeof am, string> = {
   emptyFeedBody:
     'Update your categories and travel radius in your worker profile.',
   emptyFeedCta: 'Edit worker profile',
+  emptyApplicationsTitle: 'No applications yet',
+  emptyApplicationsBody:
+    'Browse open jobs and apply — your applications and their status appear here.',
+  emptyApplicationsCta: 'See open jobs',
+  applicationJobUnavailable: 'Job no longer available',
   applicationsCount: '{count} applications',
   workersCount: '{count} workers',
   truncatedNote: 'Showing the first {shown} of {total}',
+
+  timingToday: 'Today',
+  timingThisWeek: 'This week',
+  timingFlexible: 'Flexible',
+  postedByName: 'By {name}',
 
   notFoundTitle: 'Job not found',
   notFoundBody: 'This job does not exist or you cannot view it.',
@@ -298,6 +335,7 @@ const en: Record<keyof typeof am, string> = {
     'The booking is created at this price. Take It never holds the money.',
   confirmAccept: 'Confirm & book',
   accepting: 'Booking…',
+  acceptedToast: 'Application accepted — booking created.',
 
   applicationStatusPending: 'Pending',
   applicationStatusAccepted: 'Accepted',
@@ -314,6 +352,9 @@ const en: Record<keyof typeof am, string> = {
   appliedBody: 'You will be notified when the customer accepts.',
   myApplication: 'My application',
   jobClosedForApplications: 'This job is closed for applications.',
+
+  postLikeThis: 'Post a job in this category',
+  postLikeThisBody: 'Get responses from workers in minutes.',
 };
 
 export const jobs = { am, en };
