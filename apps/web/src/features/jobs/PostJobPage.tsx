@@ -72,6 +72,10 @@ type GeoState = 'idle' | 'getting' | 'error';
 export default function PostJobPage() {
   const { t, locale } = useLocale();
   const { user } = useSession();
+  // A5: the ID, not the User OBJECT — supabase-js hands SessionProvider a new
+  // object on every auth event (token refresh included) and nothing below
+  // reads any other field, so `[user]` would re-fire the prefill for nothing.
+  const uid = user?.id ?? null;
   const navigate = useNavigate();
   const toast = useToast();
   const [searchParams] = useSearchParams();
@@ -185,9 +189,9 @@ export default function PostJobPage() {
   // Prefill the SERVICE neighborhood from the profile default — a starting
   // point the user can change; never from GPS (two-location model).
   useEffect(() => {
-    if (!user) return;
+    if (!uid) return;
     let cancelled = false;
-    fetchOwnFlags(user.id)
+    fetchOwnFlags(uid)
       .then((flags) => {
         if (cancelled || !flags) return;
         if (isNeighborhood(flags.default_neighborhood)) {
@@ -204,7 +208,7 @@ export default function PostJobPage() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [uid]);
 
   const update = <K extends keyof PostJobForm>(key: K, value: PostJobForm[K]) => {
     setForm((f) => ({ ...f, [key]: value }));

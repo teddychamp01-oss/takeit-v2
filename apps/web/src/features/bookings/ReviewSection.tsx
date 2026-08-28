@@ -195,7 +195,11 @@ export function ReviewSection({
         {t('reviews.doubleBlindExplain')}
       </p>
 
-      {reviewsQ.loading && (
+      {/* A7: useAsync now keeps the previous rows during a reload(), so this
+          spinner is gated on there being nothing to show. Otherwise the
+          reload after submitting a review would render the spinner ON TOP of
+          the still-visible old list — two states at once. */}
+      {reviewsQ.loading && !reviewsQ.data && (
         <div className="flex justify-center py-6">
           <Spinner />
         </div>

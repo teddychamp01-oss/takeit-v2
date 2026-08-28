@@ -43,6 +43,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // A4 — inline the 134-byte registerSW snippet instead of emitting
+      // /registerSW.js. The default ('script') injects a <script src> into
+      // <head> with neither defer nor async, so it parser-blocks the cold
+      // load for a whole round trip to save nothing. Inline is the same code
+      // in the same place, minus the request.
+      injectRegister: 'inline',
       includeAssets: ['icons/icon.svg', 'icons/icon-maskable.svg'],
       manifest: {
         name: 'Take It',

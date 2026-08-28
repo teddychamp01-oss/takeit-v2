@@ -344,6 +344,27 @@ describe('countUnreadByBooking', () => {
       truncated: false,
     });
   });
+
+  // A11 — the scan is now scoped to the booking ids the inbox renders, and
+  // that list is itself capped at INBOX_LIMIT. Bookings past the cap are
+  // never scanned, so their unread messages are invisible; the counts that
+  // ARE shown must therefore read as lower bounds. Without this the scoping
+  // change under-reports in silence (repo law 6).
+  it('flags an incomplete SCOPE even when the row cap was never reached', () => {
+    const rows = [{ booking_id: 'b1' }, { booking_id: 'b1' }];
+    const complete = countUnreadByBooking(rows, 500, false);
+    expect(complete.truncated).toBe(false);
+    expect(unreadBadgeText(complete.counts.b1, complete.truncated)).toBe('2');
+
+    const scoped = countUnreadByBooking(rows, 500, true);
+    expect(scoped.counts).toEqual({ b1: 2 });
+    expect(scoped.truncated).toBe(true);
+    expect(unreadBadgeText(scoped.counts.b1, scoped.truncated)).toBe('2+');
+  });
+
+  it('an empty scan over an incomplete scope is still flagged', () => {
+    expect(countUnreadByBooking([], 500, true).truncated).toBe(true);
+  });
 });
 
 describe('unreadBadgeText', () => {

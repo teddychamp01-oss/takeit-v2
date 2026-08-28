@@ -56,6 +56,14 @@ export interface WorkerCardProps {
    * summary under the name.
    */
   categories?: string[];
+  /**
+   * A13 — the worker's raw category SLUGS, carried to WorkerDetailPage on the
+   * router state so its packages section can start fetching without waiting
+   * for fetchWorkerDetail. Never rendered; a HINT only (see
+   * workerCategoriesHint). Omit it and the detail page simply falls back to
+   * the chained fetch, exactly as a cold deep link does.
+   */
+  categorySlugs?: readonly string[];
   /** Rail variant: fixed w-44, shrink-0 — for horizontal edge-bleed lists. */
   compact?: boolean;
 }
@@ -139,17 +147,25 @@ export function WorkerCard({
   distanceKm,
   availability,
   categories,
+  categorySlugs,
   compact = false,
 }: WorkerCardProps) {
   const { locale, t } = useLocale();
   const avail = AVAILABILITY[availability];
   const categoriesLine =
     categories && categories.length > 0 ? categories.join(' • ') : null;
+  // A13: undefined (not an empty object) when there is nothing to hint, so a
+  // navigation without slugs is indistinguishable from a cold deep link.
+  const linkState =
+    categorySlugs && categorySlugs.length > 0
+      ? { workerCategories: categorySlugs }
+      : undefined;
 
   if (compact) {
     return (
       <Link
         to={`/workers/${id}`}
+        state={linkState}
         className="block w-44 shrink-0 rounded-2xl bg-white p-3 shadow-card transition-colors active:bg-primary-50"
       >
         <div className="flex items-center gap-2">
@@ -206,6 +222,7 @@ export function WorkerCard({
   return (
     <Link
       to={`/workers/${id}`}
+      state={linkState}
       className="block rounded-2xl bg-white p-4 shadow-card transition-colors active:bg-primary-50"
     >
       <div className="flex items-start gap-3">

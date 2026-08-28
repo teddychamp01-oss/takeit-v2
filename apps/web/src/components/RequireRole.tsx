@@ -27,9 +27,14 @@ export function RequireRole({
   const { user, loading } = useSession();
   const t = useT();
   const [userRoles, setUserRoles] = useState<AppRole[] | null>(null);
+  // A5: depend on the ID, not the User OBJECT. supabase-js hands
+  // SessionProvider a fresh `user` object on every auth event (including the
+  // periodic token refresh), so a `[user]` dep re-runs this role query for a
+  // user whose identity never changed. Nothing here reads any other field.
+  const uid = user?.id ?? null;
 
   useEffect(() => {
-    if (!user) {
+    if (!uid) {
       setUserRoles([]);
       return;
     }
@@ -37,7 +42,7 @@ export function RequireRole({
     supabase
       .from('user_roles')
       .select('role')
-      .eq('user_id', user.id)
+      .eq('user_id', uid)
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error || !data) {
@@ -49,7 +54,7 @@ export function RequireRole({
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [uid]);
 
   if (loading || userRoles === null) return <SpinnerBlock />;
 

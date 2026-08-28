@@ -25,14 +25,17 @@ import type {
   GuarantorRow,
   NotificationRow,
   OwnProfileRow,
-  SavedWorkerRow,
   VerificationRow,
   WorkerProfileInput,
   WorkerProfileRow,
 } from './types';
 
 export const NOTIFICATIONS_LIMIT = 30;
-export const SAVED_WORKERS_LIMIT = 50;
+
+// A10 — the saved-workers read lives in ./savedWorkers so the Home rail can
+// import it without dragging this module (and everything it imports) onto
+// Home's cold-load path. Re-exported so existing call sites are unchanged.
+export { fetchSavedWorkers, SAVED_WORKERS_LIMIT } from './savedWorkers';
 
 // ---------------------------------------------------------------------------
 // Own profile + roles
@@ -158,31 +161,8 @@ export async function fetchActiveCategories(): Promise<CategoryRow[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Saved workers
+// Saved workers (the read is in ./savedWorkers — see the re-export above)
 // ---------------------------------------------------------------------------
-export async function fetchSavedWorkers(
-  customerId: string,
-): Promise<CappedList<SavedWorkerRow>> {
-  const { data, error, count } = await supabase
-    .from('saved_workers')
-    .select(
-      'worker_id, created_at, ' +
-        'worker_profiles!inner(user_id, availability_status, price_min_cents, ' +
-        'price_max_cents, rating_avg, review_count, jobs_completed, ' +
-        'verification_level, profiles!inner(display_name, avatar_url))',
-      { count: 'exact' },
-    )
-    .eq('customer_id', customerId)
-    .order('created_at', { ascending: false })
-    .order('worker_id', { ascending: true }) // stable tiebreak
-    .limit(SAVED_WORKERS_LIMIT);
-  if (error) throw error;
-  return {
-    rows: (data ?? []) as unknown as SavedWorkerRow[],
-    total: count ?? null,
-  };
-}
-
 export async function unsaveWorker(
   customerId: string,
   workerId: string,

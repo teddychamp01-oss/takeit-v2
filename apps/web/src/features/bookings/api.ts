@@ -80,16 +80,30 @@ export async function fetchMyBookings(
 }
 
 /**
- * Unread INCOMING messages across all my bookings (RLS scopes messages to
- * bookings I am a party to). Capped scan — the caller must treat counts as
- * lower bounds when rows.length hits the cap (logic.countUnreadByBooking).
+ * Unread INCOMING messages for the given bookings.
+ *
+ * A11 — `bookingIds` is REQUIRED and scopes the scan. Without it the query
+ * was bounded only by UNREAD_SCAN_LIMIT and, for the common case of a user
+ * with nothing unread, walked the whole RLS-visible slice of `messages`
+ * (measured: 727 -> 44 buffers at 50k messages). Passing the ids the inbox
+ * actually renders lets the (booking_id, read_at) access path do the work.
+ *
+ * With no ids there is nothing to scan, and PostgREST would reject an empty
+ * `in.()` anyway — return empty WITHOUT a request.
+ *
+ * Still a capped scan: the caller must treat counts as lower bounds when
+ * rows.length hits the cap, and must ALSO tell countUnreadByBooking whether
+ * `bookingIds` was itself a capped list (logic.countUnreadByBooking).
  */
 export async function fetchUnreadMessages(
   uid: string,
+  bookingIds: readonly string[],
 ): Promise<{ booking_id: string }[]> {
+  if (bookingIds.length === 0) return [];
   const { data, error } = await supabase
     .from('messages')
     .select('booking_id')
+    .in('booking_id', bookingIds as string[])
     .is('read_at', null)
     .neq('sender_id', uid)
     .limit(UNREAD_SCAN_LIMIT);

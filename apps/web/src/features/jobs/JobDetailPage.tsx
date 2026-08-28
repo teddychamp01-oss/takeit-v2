@@ -83,6 +83,9 @@ export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { t, locale } = useLocale();
   const { user } = useSession();
+  // A5: depend on the ID, not the User OBJECT (a fresh object arrives on
+  // every auth event, token refresh included). Only `id` is ever read here.
+  const uid = user?.id ?? null;
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -109,7 +112,7 @@ export default function JobDetailPage() {
   const [applying, setApplying] = useState(false);
 
   const job = jobState.status === 'ready' ? jobState.job : null;
-  const isCustomer = !!(job && user && job.customer_id === user.id);
+  const isCustomer = !!(job && uid && job.customer_id === uid);
 
   useEffect(() => {
     if (!id) return;
@@ -161,10 +164,10 @@ export default function JobDetailPage() {
 
   // Worker: do I already have an application here?
   useEffect(() => {
-    if (!job || isCustomer || !user) return;
+    if (!job || isCustomer || !uid) return;
     let cancelled = false;
     setMyAppState({ status: 'loading' });
-    fetchMyApplication(job.id, user.id)
+    fetchMyApplication(job.id, uid)
       .then((application) => {
         if (!cancelled) setMyAppState({ status: 'ready', application });
       })
@@ -174,7 +177,7 @@ export default function JobDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [job, isCustomer, user]);
+  }, [job, isCustomer, uid]);
 
   const openAcceptSheet = (application: ApplicationRow) => {
     setAcceptTarget(application);

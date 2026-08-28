@@ -18,7 +18,10 @@
 import { useMemo } from 'react';
 import { useLocale } from '../../lib/i18n';
 import { WorkerCard } from '../../components/WorkerCard';
-import { fetchSavedWorkers } from '../profile/api';
+// A10: import the saved-workers read from its own module, NOT from
+// profile/api — this rail is on Home's cold-load path and profile/api carries
+// verifications, guarantors, notifications and the storage upload with it.
+import { fetchSavedWorkers } from '../profile/savedWorkers';
 import { useAsync } from '../browse/useAsync';
 import { SectionTitle } from '../browse/ui';
 import { savedRailCards } from './logic';

@@ -254,7 +254,13 @@ export default function BookingPage() {
   const [reason, setReason] = useState('');
   const [reasonError, setReasonError] = useState<MessageKey | null>(null);
 
-  if (sessionLoading || bookingQ.loading) {
+  // A7: the full-page spinner is for the FIRST load only. After a
+  // state-machine RPC the page reload()s, and useAsync now keeps the previous
+  // booking on screen while it revalidates — so this early return must not
+  // fire then. It used to, and unmounting the page took ChatSection with it:
+  // the user's unsent chat draft was destroyed and the realtime socket torn
+  // down on every tap of Start / Done / Confirm.
+  if (sessionLoading || (bookingQ.loading && bookingQ.data === null)) {
     return (
       <div>
         <PageHeader title={t('bookings.bookingTitle')} back />
@@ -294,6 +300,12 @@ export default function BookingPage() {
     );
   }
 
+  // While a post-RPC reload is in flight the page now stays on screen showing
+  // the PREVIOUS status. Every action button is disabled for that window —
+  // the spinner used to make them unreachable, and a second tap decided
+  // against a stale status is exactly what that accident prevented.
+  const busy = actionBusy || bookingQ.loading;
+
   const job = extractEmbedded(booking.jobs);
   const counterpart = extractEmbedded(
     role === 'customer' ? booking.worker : booking.customer,
@@ -303,7 +315,7 @@ export default function BookingPage() {
   const unlocked = isContactUnlocked(booking.status);
 
   const runAction = (action: BookingAction) => {
-    if (actionBusy) return;
+    if (busy) return;
     setActionBusy(true);
     setActionErrorKey(null);
     const call =
@@ -333,7 +345,7 @@ export default function BookingPage() {
 
   const submitSheet = () => {
     // 'safety' renders no form — only cancel/dispute ever submit from here.
-    if (actionBusy || sheet === null || sheet === 'safety') return;
+    if (busy || sheet === null || sheet === 'safety') return;
     const invalid =
       sheet === 'cancel'
         ? validateCancelReason(reason)
@@ -513,7 +525,7 @@ export default function BookingPage() {
             <Button
               full
               className="mt-3"
-              disabled={actionBusy}
+              disabled={busy}
               onClick={() => runAction(primaryAction)}
             >
               {t(BOOKING_ACTION_LABEL[primaryAction])}
@@ -541,7 +553,7 @@ export default function BookingPage() {
                 <Button
                   variant="ghost"
                   className="flex-1"
-                  disabled={actionBusy}
+                  disabled={busy}
                   onClick={() => openSheet('cancel')}
                 >
                   {t('bookings.actionCancel')}
@@ -551,7 +563,7 @@ export default function BookingPage() {
                 <Button
                   variant="ghost"
                   className="flex-1 text-status-disputed"
-                  disabled={actionBusy}
+                  disabled={busy}
                   onClick={() => openSheet('dispute')}
                 >
                   {t('bookings.actionDispute')}
@@ -635,7 +647,7 @@ export default function BookingPage() {
             <Button
               full
               variant={sheet === 'dispute' ? 'danger' : 'primary'}
-              disabled={actionBusy}
+              disabled={busy}
               onClick={submitSheet}
             >
               {sheet === 'dispute'

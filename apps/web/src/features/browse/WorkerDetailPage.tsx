@@ -15,7 +15,7 @@
 // (us-D2: a check is not a substitute for meeting in person).
 
 import { useState, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useLocale } from '../../lib/i18n';
 import { microCaps } from '../../lib/typography';
 import { useSession } from '../../hooks/useSession';
@@ -48,6 +48,7 @@ import {
   postJobDeepLink,
   primaryCategory,
   ratingBreakdown,
+  workerCategoriesHint,
 } from './logic';
 import { useAsync } from './useAsync';
 import { ErrorCard, PackageCard, SectionTitle, SignInCard } from './ui';
@@ -251,6 +252,7 @@ export default function WorkerDetailPage() {
   const { locale, t } = useLocale();
   const { user, loading: sessionLoading } = useSession();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const enabled = !!id && !!user;
   const worker = useAsync(() => fetchWorkerDetail(id), `worker:${id}`, enabled);
@@ -269,7 +271,19 @@ export default function WorkerDetailPage() {
     `guarantors:${id}`,
     enabled,
   );
-  const categories = worker.data?.categories ?? [];
+  // A13 — the packages query used to be chained behind fetchWorkerDetail
+  // (categories come from that row), so the packages section could not even
+  // start until the detail round trip finished. A worker card hands the slugs
+  // over on the router state; using them as a SEED starts the fetch on the
+  // first render instead.
+  //
+  // Hint semantics, deliberately: authoritative categories win the moment
+  // fetchWorkerDetail answers, and because they are part of the useAsync key
+  // a wrong or stale hint is superseded, not trusted. A cold deep link or a
+  // reload carries no state and takes the original chained path unchanged.
+  // (`service_packages` is world-readable, so the hint grants no access.)
+  const hintedCategories = workerCategoriesHint(location.state);
+  const categories = worker.data?.categories ?? hintedCategories;
   const packages = useAsync(
     () => fetchWorkerPackages(categories),
     `packages:${id}:${categories.join(',')}`,

@@ -101,6 +101,25 @@ export function displayRating(
   return Number(ratingAvg);
 }
 
+/**
+ * A13 — read the category-slug HINT a worker card put on the router state.
+ *
+ * A HINT ONLY, never an authorisation input. Its single use is to start the
+ * service-packages fetch on WorkerDetailPage one round trip earlier, and
+ * `service_packages` is world-readable (RLS `USING (true)`), so a crafted
+ * value discloses nothing and buys nothing. The authoritative categories
+ * still arrive from fetchWorkerDetail and supersede this — a cold deep link
+ * or a reload has no state at all and MUST keep working.
+ *
+ * Anything that is not an array of strings yields [] (no hint).
+ */
+export function workerCategoriesHint(state: unknown): string[] {
+  if (state === null || typeof state !== 'object') return [];
+  const value = (state as { workerCategories?: unknown }).workerCategories;
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string');
+}
+
 export function workerCardFromListRow(row: WorkerListRow): WorkerCardProps {
   return {
     id: row.user_id,
@@ -113,6 +132,7 @@ export function workerCardFromListRow(row: WorkerListRow): WorkerCardProps {
     priceMinCents: row.price_min_cents,
     priceMaxCents: row.price_max_cents,
     availability: row.availability_status,
+    categorySlugs: row.categories,
   };
 }
 
@@ -129,6 +149,7 @@ export function workerCardFromNearbyRow(row: NearbyWorkerRow): WorkerCardProps {
     priceMaxCents: row.price_max_cents,
     distanceKm: row.distance_m / 1000,
     availability: row.availability_status,
+    categorySlugs: row.categories,
   };
 }
 

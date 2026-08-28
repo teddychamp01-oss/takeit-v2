@@ -256,19 +256,32 @@ export const UNREAD_SCAN_LIMIT = 500;
 export interface UnreadResult {
   /** booking_id -> unread incoming messages seen by the scan. */
   counts: Record<string, number>;
-  /** True when the scan hit its cap — every count is then a LOWER BOUND. */
+  /** True when the scan was incomplete — every count is then a LOWER BOUND. */
   truncated: boolean;
 }
 
+/**
+ * Fold an unread scan into per-booking counts.
+ *
+ * A scan can be incomplete in TWO ways and both must reach the badge (law 6:
+ * a capped query reports what it dropped):
+ *   1. `rows` hit the row cap — more unread rows exist than were fetched.
+ *   2. `scopeIncomplete` — the caller scoped the scan to a LIST OF BOOKING
+ *      IDS that was itself capped (A11). Bookings past that cap were never
+ *      scanned, so the inbox's unread picture is a lower bound even when the
+ *      row cap was nowhere near. Leaving this out is exactly the silent
+ *      under-report the scoping change would otherwise have introduced.
+ */
 export function countUnreadByBooking(
   rows: readonly { booking_id: string }[],
   limit: number = UNREAD_SCAN_LIMIT,
+  scopeIncomplete: boolean = false,
 ): UnreadResult {
   const counts: Record<string, number> = {};
   for (const row of rows) {
     counts[row.booking_id] = (counts[row.booking_id] ?? 0) + 1;
   }
-  return { counts, truncated: rows.length >= limit };
+  return { counts, truncated: scopeIncomplete || rows.length >= limit };
 }
 
 /**

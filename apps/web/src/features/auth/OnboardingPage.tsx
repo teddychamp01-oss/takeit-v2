@@ -74,6 +74,11 @@ type LoadPhase = 'loading' | 'error' | 'ready';
 export default function OnboardingPage() {
   const { locale, t } = useLocale();
   const { user } = useSession(); // page is wrapped in <RequireAuth>
+  // A5: `load` is a useCallback in an effect's dep list, so keying it on the
+  // User OBJECT re-ran the whole profile load (and reset `phase` to
+  // 'loading', blanking a half-filled form) on every auth event — token
+  // refreshes included. Only `id` is read.
+  const uid = user?.id ?? null;
   const navigate = useNavigate();
 
   const [phase, setPhase] = useState<LoadPhase>('loading');
@@ -94,10 +99,10 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    if (!user) return;
+    if (!uid) return;
     setPhase('loading');
     try {
-      const profile = await fetchOwnProfile(user.id);
+      const profile = await fetchOwnProfile(uid);
       if (profile) {
         setDisplayName(profile.display_name);
         setRole(flagsToRole(profile.is_customer, profile.is_worker));
@@ -110,7 +115,7 @@ export default function OnboardingPage() {
     } catch {
       setPhase('error');
     }
-  }, [user]);
+  }, [uid]);
 
   useEffect(() => {
     void load();

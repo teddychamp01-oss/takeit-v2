@@ -1,5 +1,21 @@
 // Minimal async-fetch hook for the browse/home features (no query library —
-// every KB counts on low-end Android, C6). Loading, error and empty states
+// every KB counts on low-end Android, C6).
+//
+// ── DIVERGENCE from features/bookings/useAsync.ts (A7, 2026-08-28) ─────────
+// The bookings copy does stale-while-revalidate on reload() — it keeps the
+// previous value on screen while the refetch runs. This copy does NOT: on
+// reload() `data` goes null and the caller shows its skeleton again. The two
+// files are NO LONGER line-for-line identical; do not "resync" them without
+// reading the note at the top of the bookings copy for why.
+//
+// Why the difference: BookingPage reloads after every state-machine RPC and
+// holds user-entered state (an unsent chat draft) plus a realtime socket
+// across that reload. Nothing in browse/home does — every reload() here is a
+// user-pressed Retry on a failed fetch, where re-showing the skeleton is the
+// honest state.
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Loading, error and empty states
 // are all representable, a stale response can never overwrite a newer one,
 // and `loading` is computed against the CURRENTLY wanted key — so flipping
 // `enabled` or changing `key` never flashes a stale empty/error state for a

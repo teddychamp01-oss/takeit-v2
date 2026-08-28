@@ -193,3 +193,78 @@ describe('formatDualDate (N15)', () => {
     expect(formatDualDate(iso, 'en')).toBe('2026-08-27');
   });
 });
+
+// ---------------------------------------------------------------------------
+// A9 — the formatter cache must never outlive the constructor it was built
+// from. Every test above stubs `Intl` per test; a cache keyed on the option
+// string alone would serve instances built from an EARLIER global and those
+// tests would pass while testing nothing (the verifier that cannot fail).
+// Each test below stubs a formatter whose output is DISTINCT from the real
+// one, so an identity-blind cache is caught rather than accidentally agreed
+// with. They fail against a cache keyed on the option string alone.
+// ---------------------------------------------------------------------------
+describe('Intl formatter cache (A9)', () => {
+  it('honours a swapped Intl.NumberFormat after a real one was cached', () => {
+    expect(formatETB(125000)).toBe(`ብር${NBSP}1,250`); // populates the cache
+    const StubNF = function () {
+      return { format: () => 'STUB-NUMBER' };
+    } as unknown as typeof Intl.NumberFormat;
+    vi.stubGlobal('Intl', { ...Intl, NumberFormat: StubNF });
+    expect(formatETB(125000)).toBe('STUB-NUMBER');
+  });
+
+  it('honours a swapped Intl.RelativeTimeFormat after a real one was cached', () => {
+    const now = new Date('2026-08-26T12:00:00Z');
+    const then = new Date(now.getTime() - 5 * 60 * 1000);
+    expect(formatRelativeTime(then, 'en', now)).toBe('5 minutes ago');
+    const StubRTF = function () {
+      return { format: () => 'STUB-RELATIVE' };
+    } as unknown as typeof Intl.RelativeTimeFormat;
+    vi.stubGlobal('Intl', { ...Intl, RelativeTimeFormat: StubRTF });
+    expect(formatRelativeTime(then, 'en', now)).toBe('STUB-RELATIVE');
+  });
+
+  it('honours a swapped Intl.DateTimeFormat after a real one was cached', () => {
+    expect(formatDualDate('2026-08-27T12:00:00Z', 'en')).toBe('August 27, 2026');
+    const StubDTF = function () {
+      return {
+        format: () => 'STUB-DATE',
+        resolvedOptions: () => ({ calendar: 'gregory' }),
+      };
+    } as unknown as typeof Intl.DateTimeFormat;
+    vi.stubGlobal('Intl', { ...Intl, DateTimeFormat: StubDTF });
+    expect(formatDualDate('2026-08-27T12:00:00Z', 'en')).toBe('STUB-DATE');
+  });
+
+  it('never caches a constructor that threw — the fallback fires every time', () => {
+    const BrokenNF = function () {
+      throw new Error('locale data unavailable');
+    } as unknown as typeof Intl.NumberFormat;
+    vi.stubGlobal('Intl', { ...Intl, NumberFormat: BrokenNF });
+    // Twice: a poisoned cache entry would make the second call differ.
+    expect(formatETB(125000)).toBe(`ብር${NBSP}1,250`);
+    expect(formatETB(125000)).toBe(`ብር${NBSP}1,250`);
+    vi.unstubAllGlobals();
+    // And a real constructor is picked up again straight after.
+    expect(formatETB(123450)).toBe(`ብር${NBSP}1,234.50`);
+  });
+
+  it('reuses one instance per key while the constructor is unchanged', () => {
+    let constructed = 0;
+    const RealNF = Intl.NumberFormat;
+    const CountingNF = function (
+      locale?: string | string[],
+      opts?: Intl.NumberFormatOptions,
+    ) {
+      constructed += 1;
+      return new RealNF(locale, opts);
+    } as unknown as typeof Intl.NumberFormat;
+    vi.stubGlobal('Intl', { ...Intl, NumberFormat: CountingNF });
+    formatETB(125000);
+    formatETB(999900);
+    formatETB(100);
+    formatETB(250);
+    // Two distinct keys (0 and 2 fraction digits), four calls.
+    expect(constructed).toBe(2);
+  });
+});

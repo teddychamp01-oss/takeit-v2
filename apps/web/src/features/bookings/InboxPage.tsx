@@ -20,6 +20,7 @@ import { useAsync } from './useAsync';
 import {
   bookingRole,
   countUnreadByBooking,
+  UNREAD_SCAN_LIMIT,
   extractEmbedded,
   filterBookingsByRole,
   hasBothRoles,
@@ -125,12 +126,20 @@ export default function InboxPage() {
     `inbox:${uid ?? ''}`,
     !!uid,
   );
-  // Unread counts load alongside; a slow/failed scan only means "no badges
-  // yet" — it never blocks the list itself.
+
+  // A11 — the unread scan is SCOPED to the bookings this page renders.
+  //
+  // This is a DELIBERATE WATERFALL: unreadQ now waits for bookingsQ instead of
+  // running beside it. That is acceptable here and only here, because unreadQ
+  // does not gate the page — `bookingsQ.loading` does (below), and the badges
+  // fill in after paint. Do NOT "fix" this back to a parallel fetch: an
+  // unscoped scan walks the whole RLS-visible messages slice, and the user
+  // with zero unread messages is the one who pays for all of it.
+  const bookingIds = bookingsQ.data?.rows.map((row) => row.id) ?? [];
   const unreadQ = useAsync(
-    () => fetchUnreadMessages(uid ?? ''),
-    `inbox-unread:${uid ?? ''}`,
-    !!uid,
+    () => fetchUnreadMessages(uid ?? '', bookingIds),
+    `inbox-unread:${uid ?? ''}:${bookingIds.join(',')}`,
+    !!uid && bookingIds.length > 0,
   );
 
   const header = <PageHeader title={t('bookings.inboxTitle')} />;
@@ -185,10 +194,17 @@ export default function InboxPage() {
     );
   }
 
-  const unread = countUnreadByBooking(unreadQ.data ?? []);
+  const capped = total != null && total > rows.length;
+  // A11: when the BOOKING list was capped, bookings past the cap were never
+  // scanned for unread messages — so the counts are lower bounds and the
+  // badges must say so ("n+"), not present a silently short number.
+  const unread = countUnreadByBooking(
+    unreadQ.data ?? [],
+    UNREAD_SCAN_LIMIT,
+    capped,
+  );
   const showFilters = hasBothRoles(rows, uid);
   const visible = filterBookingsByRole(rows, uid, filter);
-  const capped = total != null && total > rows.length;
 
   return (
     <div>

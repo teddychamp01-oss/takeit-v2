@@ -12,6 +12,7 @@ import {
   splitByNearby,
   workerCardFromListRow,
   workerCardFromNearbyRow,
+  workerCategoriesHint,
 } from '../logic';
 import type { NearbyWorkerRow, WorkerListRow } from '../types';
 
@@ -172,6 +173,51 @@ describe('workerCardFromListRow / workerCardFromNearbyRow', () => {
       review_count: 0,
     });
     expect(props.ratingAvg).toBeNull();
+  });
+
+  it('carries the raw category slugs as the A13 router-state hint', () => {
+    expect(workerCardFromListRow(listRow).categorySlugs).toEqual(
+      listRow.categories,
+    );
+    expect(workerCardFromNearbyRow(nearbyRow).categorySlugs).toEqual(
+      nearbyRow.categories,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// workerCategoriesHint (A13) — a HINT off the router state, never trusted.
+// The chained fetch must remain the fallback for a cold deep link, so every
+// shape that is not an array of strings has to yield "no hint" rather than
+// something that could make the packages query fire with garbage.
+// ---------------------------------------------------------------------------
+
+describe('workerCategoriesHint', () => {
+  it('reads the slugs a worker card put on the state', () => {
+    expect(
+      workerCategoriesHint({ workerCategories: ['cleaning', 'plumbing'] }),
+    ).toEqual(['cleaning', 'plumbing']);
+  });
+
+  it('returns [] for a cold deep link or a reload (no state at all)', () => {
+    expect(workerCategoriesHint(null)).toEqual([]);
+    expect(workerCategoriesHint(undefined)).toEqual([]);
+  });
+
+  it('returns [] for state that carries something else entirely', () => {
+    expect(workerCategoriesHint({ chatDraft: 'hello' })).toEqual([]);
+    expect(workerCategoriesHint('cleaning')).toEqual([]);
+    expect(workerCategoriesHint(42)).toEqual([]);
+    expect(workerCategoriesHint({ workerCategories: 'cleaning' })).toEqual([]);
+    expect(workerCategoriesHint({ workerCategories: null })).toEqual([]);
+  });
+
+  it('drops non-string members rather than passing them to the query', () => {
+    expect(
+      workerCategoriesHint({
+        workerCategories: ['cleaning', 7, null, { x: 1 }, 'moving'],
+      }),
+    ).toEqual(['cleaning', 'moving']);
   });
 });
 

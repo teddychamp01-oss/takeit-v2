@@ -58,6 +58,13 @@ const INITIAL_LIST = { status: 'loading', page: null } as const;
 export default function MyJobsPage() {
   const { t } = useLocale();
   const { user } = useSession();
+  // A5: every effect below keys on the ID, not the User OBJECT. supabase-js
+  // hands SessionProvider a brand-new `user` object on each auth event
+  // (token refresh included); with `[user]` deps this page re-ran all three
+  // fetches — and the tab effect resets its list to `loading`, so a refresh
+  // mid-scroll replaced the list with a spinner. Nothing reads any field but
+  // `id` (grep: no user.email / app_metadata / user_metadata / phone here).
+  const uid = user?.id ?? null;
 
   const [isWorker, setIsWorker] = useState<boolean | null>(null);
   const [tab, setTab] = useState<Tab>('mine');
@@ -76,9 +83,9 @@ export default function MyJobsPage() {
 
   // Which tabs exist (worker tabs only for workers) + default tab.
   useEffect(() => {
-    if (!user) return;
+    if (!uid) return;
     let cancelled = false;
-    fetchOwnFlags(user.id)
+    fetchOwnFlags(uid)
       .then((flags) => {
         if (cancelled) return;
         const worker = flags?.is_worker ?? false;
@@ -91,15 +98,15 @@ export default function MyJobsPage() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [uid]);
 
   // Worker activation card data (T9) — fetched once the flags say worker.
   // Best-effort: a failure just hides the card (MePage carries the
   // retryable version); the feed itself is unaffected.
   useEffect(() => {
-    if (!user || isWorker !== true) return;
+    if (!uid || isWorker !== true) return;
     let cancelled = false;
-    Promise.all([fetchOwnWorkerProfile(user.id), fetchOwnProfile(user.id)])
+    Promise.all([fetchOwnWorkerProfile(uid), fetchOwnProfile(uid)])
       .then(([worker, profile]) => {
         if (!cancelled && worker) {
           setActivation({ worker, avatarUrl: profile?.avatar_url ?? null });
@@ -111,7 +118,7 @@ export default function MyJobsPage() {
     return () => {
       cancelled = true;
     };
-  }, [user, isWorker]);
+  }, [uid, isWorker]);
 
   // Category names for the rows (best-effort; slugs render as fallback).
   useEffect(() => {
@@ -129,12 +136,23 @@ export default function MyJobsPage() {
   }, []);
 
   // Per-tab data.
+  //
+  // A8: HOLD until the flags resolve (isWorker !== null). `tab` starts at
+  // 'mine' and flips to 'feed' for a worker-only account the moment
+  // fetchOwnFlags answers, so firing here first issued a fetchMyJobs whose
+  // answer was thrown away. The page already renders a spinner while
+  // isWorker === null (below), so this waits for nothing that was on screen.
+  //
+  // COST, stated plainly: this serialises fetchOwnFlags → list where the two
+  // used to overlap. It removes a wasted request for worker-only accounts and
+  // adds one round trip of latency for everyone else. Not measured on a
+  // device or a real network — see the report for this change.
   useEffect(() => {
-    if (!user) return;
+    if (!uid || isWorker === null) return;
     let cancelled = false;
     if (tab === 'applications') {
       setApps({ status: 'loading', page: null });
-      fetchOwnApplications(user.id)
+      fetchOwnApplications(uid)
         .then((page) => {
           if (!cancelled) setApps({ status: 'ready', page });
         })
@@ -144,7 +162,7 @@ export default function MyJobsPage() {
     } else {
       const setState = tab === 'mine' ? setMine : setFeed;
       setState({ status: 'loading', page: null });
-      (tab === 'mine' ? fetchMyJobs(user.id) : fetchOpenJobsFeed(user.id))
+      (tab === 'mine' ? fetchMyJobs(uid) : fetchOpenJobsFeed(uid))
         .then((page) => {
           if (!cancelled) setState({ status: 'ready', page });
         })
@@ -155,7 +173,7 @@ export default function MyJobsPage() {
     return () => {
       cancelled = true;
     };
-  }, [user, tab, reload]);
+  }, [uid, isWorker, tab, reload]);
 
   const current: ListState<JobListRow> | ListState<OwnApplicationRow> =
     tab === 'mine' ? mine : tab === 'feed' ? feed : apps;

@@ -10,9 +10,14 @@
 // (audited: JobListRow in features/jobs/api.ts, JobTeaserRow in
 // features/browse/types.ts) — pages resolve slugs to localized category /
 // neighborhood labels before passing them in. The timing chip is DERIVED
-// from date_needed (deriveTiming in features/jobs/logic.ts) — there is no
+// from date_needed (deriveTiming in features/jobs/timing.ts) — there is no
 // urgency column and none is added. Money via formatETB (integer cents, C7).
 // Inline SVG icons only (no icon library, C6).
+//
+// A10: import from features/jobs/TIMING, not features/jobs/logic. logic.ts
+// re-exports these for compatibility, but reaching them through it pulls the
+// post-job wizard's validation (and browse/logic, auth/validation, lib/phone
+// behind it) onto Home's cold-load path. This card renders on Home.
 
 import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
@@ -26,7 +31,7 @@ import {
   isIsoDate,
   localTodayIso,
   TIMING_CHIP_KEY,
-} from '../features/jobs/logic';
+} from '../features/jobs/timing';
 
 function IconMapPin() {
   return (

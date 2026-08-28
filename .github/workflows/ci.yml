@@ -57,3 +57,12 @@ jobs:
             echo "== $f"
             psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$f"
           done
+      - name: Persona smoke test (RLS reachability + protected columns)
+        env:
+          PGPASSWORD: postgres
+        run: |
+          # Reads every table the app reads, as each persona, THROUGH RLS.
+          # Catches the class of bug where a grant change breaks a table whose
+          # POLICY reads the revoked column (see the file header).
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f supabase/ci/persona_smoke.sql
